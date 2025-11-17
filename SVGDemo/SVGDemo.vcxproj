@@ -147,20 +147,50 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ISVGElement.h" />
+    <ClInclude Include="IXMLNode.h" />
+    <ClInclude Include="Point.h" />
     <ClInclude Include="rapidxml.hpp" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="SVGCircle.h" />
     <ClInclude Include="SVGDemo.h" />
+    <ClInclude Include="SVGDocument.h" />
+    <ClInclude Include="SVGElementFactory.h" />
+    <ClInclude Include="SVGEllipse.h" />
+    <ClInclude Include="SVGGroup.h" />
+    <ClInclude Include="SVGLine.h" />
+    <ClInclude Include="SVGParser.h" />
+    <ClInclude Include="SVGPath.h" />
+    <ClInclude Include="SVGPolygon.h" />
+    <ClInclude Include="SVGPolyline.h" />
+    <ClInclude Include="SVGRectangle.h" />
+    <ClInclude Include="SVGRenderer.h" />
+    <ClInclude Include="SVGText.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Point.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="SVGCircle.cpp" />
     <ClCompile Include="SVGDemo.cpp" />
+    <ClCompile Include="SVGDocument.cpp" />
+    <ClCompile Include="SVGElementFactory.cpp" />
+    <ClCompile Include="SVGEllipse.cpp" />
+    <ClCompile Include="SVGGroup.cpp" />
+    <ClCompile Include="SVGLine.cpp" />
+    <ClCompile Include="SVGParser.cpp" />
+    <ClCompile Include="SVGPath.cpp" />
+    <ClCompile Include="SVGPolygon.cpp" />
+    <ClCompile Include="SVGPolyline.cpp" />
+    <ClCompile Include="SVGRectangle.cpp" />
+    <ClCompile Include="SVGRenderer.cpp" />
+    <ClCompile Include="SVGText.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SVGDemo.rc" />
