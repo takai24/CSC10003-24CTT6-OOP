@@ -3,7 +3,7 @@
 #include "stdafx.h"
 #include "SvgDocument.h"
 
-class SvgRenderer
+class SvgRenderer 
 {
 public:
     SvgRenderer() = default;

@@ -12,6 +12,9 @@
 SvgRenderer *globalRenderer = nullptr;
 Image *startupImage = nullptr;
 
+// Check if is first run
+bool isFirstRun = true;
+
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
 bool OpenSVGFileDialog(wchar_t *outPath);
@@ -19,22 +22,28 @@ bool OpenSVGFileDialog(wchar_t *outPath);
 VOID OnPaint(HDC hdc)
 {
     Graphics graphics(hdc);
+	graphics.Clear(Color(255, 255, 255, 255));
 
-    FontFamily fontFamily(L"Arial");
-    Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
-    SolidBrush brush(Color(255, 0, 0, 0));
-    graphics.DrawString(
-        L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
-        -1,
-        &font,
-        PointF(20, 350),
-        &brush);
-
-    if (startupImage && startupImage->GetLastStatus() == Ok)
+    if (isFirstRun)
     {
-        graphics.DrawImage(startupImage, 20, 20,
-                           startupImage->GetWidth(),
-                           startupImage->GetHeight());
+        FontFamily fontFamily(L"Arial");
+        Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
+        SolidBrush brush(Color(255, 0, 0, 0));
+        graphics.DrawString(
+            L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
+            -1,
+            &font,
+            PointF(20, 350),
+            &brush);
+
+        if (startupImage && startupImage->GetLastStatus() == Ok)
+        {
+            graphics.DrawImage(startupImage, 20, 20,
+                               startupImage->GetWidth(),
+                               startupImage->GetHeight());
+        }
+
+        isFirstRun = false;
     }
 
     // Actually draw the SVG via new OOP renderer
@@ -43,6 +52,7 @@ VOID OnPaint(HDC hdc)
         GdiPlusRenderer renderer(graphics);
         globalRenderer->GetDocument().Render(renderer);
     }
+    globalRenderer = nullptr;
 }
 
 // Open file dialog (accepts .svg only)
