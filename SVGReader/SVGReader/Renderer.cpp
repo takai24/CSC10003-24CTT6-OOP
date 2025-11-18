@@ -305,3 +305,13 @@ void SvgRenderer::Draw(Graphics& g)
         g.DrawPolygon(&pen, p.points.data(), p.points.size());
     }
 }
+
+void SvgRenderer::Clear()
+{
+    lines.clear();
+    rects.clear();
+    circles.clear();
+    ellipses.clear();
+    polylines.clear();
+	polygons.clear();
+}

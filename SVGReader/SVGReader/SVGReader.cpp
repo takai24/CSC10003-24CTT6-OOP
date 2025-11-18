@@ -10,6 +10,9 @@
 SvgRenderer* globalRenderer = nullptr;
 Image* startupImage = nullptr;
 
+// Is First Run?
+bool isFirstRun = true;
+
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
 bool OpenSVGFileDialog(wchar_t* outPath);
@@ -18,23 +21,28 @@ VOID OnPaint(HDC hdc)
 {
     Graphics graphics(hdc);
 
-    FontFamily fontFamily(L"Arial");
-    Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
-    SolidBrush brush(Color(255, 0, 0, 0));
-    graphics.DrawString(
-        L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
-        -1,
-        &font,
-        PointF(20, 350),
-        &brush
-    );
-
-    if (startupImage && startupImage->GetLastStatus() == Ok)
+    if (isFirstRun)
     {
-        graphics.DrawImage(startupImage, 20, 20,
-            startupImage->GetWidth(),
-            startupImage->GetHeight());
-    }
+        FontFamily fontFamily(L"Arial");
+        Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
+        SolidBrush brush(Color(255, 0, 0, 0));
+        graphics.DrawString(
+            L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
+            -1,
+            &font,
+            PointF(20, 350),
+            &brush
+        );
+
+        if (startupImage && startupImage->GetLastStatus() == Ok)
+        {
+            graphics.DrawImage(startupImage, 20, 20,
+                startupImage->GetWidth(),
+                startupImage->GetHeight());
+        }
+        isFirstRun = false;
+        return;
+	}
 
     // Actually draw the SVG
     if (globalRenderer)
@@ -157,8 +165,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     return 0;
                 }
 
-                if (!globalRenderer)
-                    globalRenderer = new SvgRenderer();
+                if (!globalRenderer) globalRenderer = new SvgRenderer();
+				else globalRenderer->Clear();
 
                 if (globalRenderer->Load(filePath))
                 {

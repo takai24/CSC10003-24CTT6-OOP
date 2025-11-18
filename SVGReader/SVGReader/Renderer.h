@@ -68,4 +68,5 @@ class SvgRenderer
 
         bool Load(const wstring& filePath);
         void Draw(Graphics& g);
+        void Clear();
 };
