@@ -1,60 +1,54 @@
 ﻿#include "stdafx.h"
+#include "Renderer.h"
+#include "GdiPlusRenderer.h"
 
 // Menu item IDs
-#define ID_FILE_OPEN  9001
-#define ID_FILE_EXIT  9002
-#define ID_GROUP      9003
-#define ID_PROJECT    9004
+#define ID_FILE_OPEN 9001
+#define ID_FILE_EXIT 9002
+#define ID_GROUP 9003
+#define ID_PROJECT 9004
 
 // Global SVGRenderer Instance
-SvgRenderer* globalRenderer = nullptr;
-Image* startupImage = nullptr;
-
-// Is First Run?
-bool isFirstRun = true;
+SvgRenderer *globalRenderer = nullptr;
+Image *startupImage = nullptr;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
-bool OpenSVGFileDialog(wchar_t* outPath);
+bool OpenSVGFileDialog(wchar_t *outPath);
 
 VOID OnPaint(HDC hdc)
 {
     Graphics graphics(hdc);
 
-    if (isFirstRun)
+    FontFamily fontFamily(L"Arial");
+    Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
+    SolidBrush brush(Color(255, 0, 0, 0));
+    graphics.DrawString(
+        L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
+        -1,
+        &font,
+        PointF(20, 350),
+        &brush);
+
+    if (startupImage && startupImage->GetLastStatus() == Ok)
     {
-        FontFamily fontFamily(L"Arial");
-        Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
-        SolidBrush brush(Color(255, 0, 0, 0));
-        graphics.DrawString(
-            L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
-            -1,
-            &font,
-            PointF(20, 350),
-            &brush
-        );
+        graphics.DrawImage(startupImage, 20, 20,
+                           startupImage->GetWidth(),
+                           startupImage->GetHeight());
+    }
 
-        if (startupImage && startupImage->GetLastStatus() == Ok)
-        {
-            graphics.DrawImage(startupImage, 20, 20,
-                startupImage->GetWidth(),
-                startupImage->GetHeight());
-        }
-        isFirstRun = false;
-        return;
-	}
-
-    // Actually draw the SVG
+    // Actually draw the SVG via new OOP renderer
     if (globalRenderer)
     {
-        globalRenderer->Draw(graphics);
+        GdiPlusRenderer renderer(graphics);
+        globalRenderer->GetDocument().Render(renderer);
     }
 }
 
 // Open file dialog (accepts .svg only)
-bool OpenSVGFileDialog(wchar_t* outPath)
+bool OpenSVGFileDialog(wchar_t *outPath)
 {
-    OPENFILENAME ofn = { 0 };
+    OPENFILENAME ofn = {0};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
     ofn.lpstrFile = outPath;
@@ -122,7 +116,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
         hInstance,
         NULL);
 
-    if (!hWnd) return 0;
+    if (!hWnd)
+        return 0;
 
     ShowWindow(hWnd, iCmdShow);
     UpdateWindow(hWnd);
@@ -155,18 +150,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
         case ID_FILE_OPEN:
         {
-            wchar_t filePath[MAX_PATH] = { 0 };
+            wchar_t filePath[MAX_PATH] = {0};
             if (OpenSVGFileDialog(filePath))
             {
-                wchar_t* ext = wcsrchr(filePath, L'.');
+                wchar_t *ext = wcsrchr(filePath, L'.');
                 if (ext && _wcsicmp(ext, L".svg") != 0)
                 {
                     MessageBox(hWnd, L"Chọn file .svg", L"Invalid File", MB_OK);
                     return 0;
                 }
 
-                if (!globalRenderer) globalRenderer = new SvgRenderer();
-				else globalRenderer->Clear();
+                if (!globalRenderer)
+                    globalRenderer = new SvgRenderer();
 
                 if (globalRenderer->Load(filePath))
                 {
@@ -202,7 +197,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_DESTROY:
-        if (startupImage) delete startupImage;
+        if (startupImage)
+            delete startupImage;
         if (globalRenderer)
         {
             delete globalRenderer;

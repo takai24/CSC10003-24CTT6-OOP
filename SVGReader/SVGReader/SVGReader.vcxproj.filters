@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\Renderer">
+      <UniqueIdentifier>{c959d82b-4534-45f4-9d79-cef5b0c5a399}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -27,13 +30,19 @@
     <ClInclude Include="SVGReader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="rapidxml.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Renderer.h">
+      <Filter>Source Files\Renderer</Filter>
     </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer.h">
+    <ClInclude Include="rapidxml.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IXMLNode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RapidXmlNodeAdapter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -42,9 +51,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Renderer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Renderer</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RapidXmlNodeAdapter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -61,6 +73,9 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="SVGReaderCustomSmall.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="icon1.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
