@@ -7,9 +7,11 @@
 * [Võ Thành Hoan](https://github.com/Hax-ctrl) - 24120052
 
 ## Mô tả đồ án
-SVG Reader.
+SVG Reader là một ứng dụng đọc file định dạng SVG (Scalable Vector Graphics) và hiển thị nội dung của file đó lên giao diện người dùng. Ứng dụng này được xây dựng bằng ngôn ngữ lập trình C++ và sử dụng thư viện GDIPlus và RapidXML để tạo giao diện đồ họa và đọc file SVG.
 
+## Miletones
+- [Milestone 1st](/Milestones/milestone-1.md).
+- Waiting for the next milestones...
 
-
-> [!IMPORTANT]
+> [!NOTE]
 > Made with ❤️.
