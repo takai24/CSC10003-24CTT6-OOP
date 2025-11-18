@@ -6,8 +6,9 @@
 #define ID_GROUP      9003
 #define ID_PROJECT    9004
 
-// Global SVGRenderer instance
+// Global SVGRenderer Instance
 SvgRenderer* globalRenderer = nullptr;
+Image* startupImage = nullptr;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
@@ -16,16 +17,36 @@ bool OpenSVGFileDialog(wchar_t* outPath);
 VOID OnPaint(HDC hdc)
 {
     Graphics graphics(hdc);
+
+    FontFamily fontFamily(L"Arial");
+    Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
+    SolidBrush brush(Color(255, 0, 0, 0));
+    graphics.DrawString(
+        L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
+        -1,
+        &font,
+        PointF(20, 350),
+        &brush
+    );
+
+    if (startupImage && startupImage->GetLastStatus() == Ok)
+    {
+        graphics.DrawImage(startupImage, 20, 20,
+            startupImage->GetWidth(),
+            startupImage->GetHeight());
+    }
+
+    // Actually draw the SVG
     if (globalRenderer)
     {
         globalRenderer->Draw(graphics);
     }
 }
 
-// Open file dialog (only accepts .svg)
+// Open file dialog (accepts .svg only)
 bool OpenSVGFileDialog(wchar_t* outPath)
 {
-    OPENFILENAME ofn = { 0 };
+    OPENFILENAME ofn = {0};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
     ofn.lpstrFile = outPath;
@@ -39,7 +60,7 @@ bool OpenSVGFileDialog(wchar_t* outPath)
     return GetOpenFileName(&ofn) != 0;
 }
 
-// Main entry point
+// WinMain Entry
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 {
     HWND hWnd;
@@ -51,13 +72,13 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
     // Init GDI+
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-    // Register window class
+    // Register Window Class
     wndClass.style = CS_HREDRAW | CS_VREDRAW;
     wndClass.lpfnWndProc = WndProc;
     wndClass.cbClsExtra = 0;
     wndClass.cbWndExtra = 0;
     wndClass.hInstance = hInstance;
-    wndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wndClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
     wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     wndClass.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
     wndClass.lpszMenuName = NULL;
@@ -65,7 +86,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 
     RegisterClass(&wndClass);
 
-    // Create menu bar
+    // Create Menu bar
     HMENU hMenubar = CreateMenu();
     
     // Create File menu
@@ -93,8 +114,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
         hInstance,
         NULL);
 
-    if (!hWnd)
-        return 0;
+    if (!hWnd) return 0;
 
     ShowWindow(hWnd, iCmdShow);
     UpdateWindow(hWnd);
@@ -106,7 +126,7 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
         DispatchMessage(&msg);
     }
 
-    // Clean up
+    // Shut down
     GdiplusShutdown(gdiplusToken);
     return msg.wParam;
 }
@@ -119,6 +139,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     switch (message)
     {
+    case WM_CREATE:
+        startupImage = new Image(L"fit.png");
+        return 0;
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
@@ -130,7 +153,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 wchar_t* ext = wcsrchr(filePath, L'.');
                 if (ext && _wcsicmp(ext, L".svg") != 0)
                 {
-                    MessageBox(hWnd, L"Chọn file .svg", L"Invalid File", MB_OK | MB_ICONWARNING);
+                    MessageBox(hWnd, L"Chọn file .svg", L"Invalid File", MB_OK);
                     return 0;
                 }
 
@@ -139,12 +162,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 
                 if (globalRenderer->Load(filePath))
                 {
-                    MessageBox(hWnd, L"File đã được mở.", L"Thành công!", MB_OK | MB_ICONINFORMATION);
+                    MessageBox(hWnd, L"File đã được mở.", L"Thành công!", MB_OK);
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
                 else
                 {
-                    MessageBox(hWnd, L"Failed to load SVG file", L"Error", MB_OK | MB_ICONERROR);
+                    MessageBox(hWnd, L"Failed to load SVG file", L"Error", MB_OK);
                 }
             }
             return 0;
@@ -155,11 +178,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             return 0;
 
         case ID_GROUP:
-            MessageBox(hWnd, L"Nhóm số 13 \n\nCác thành viên: \nPhan Hữu Trọng Phúc - 24120122 \nĐỗ Chí Cao - 24120270 \nLâm Tuấn Khanh - 24120337 \nVõ Thành Hoan - 24120052", L"Thông tin Nhóm", MB_OK | MB_ICONINFORMATION);
+            MessageBox(hWnd, L"Nhóm số 13 \n\nCác thành viên: \nPhan Hữu Trọng Phúc - 24120122 \nĐỗ Chí Cao - 24120270 \nLâm Tuấn Khanh - 24120337 \nVõ Thành Hoan - 24120052", L"Thông tin Nhóm", MB_OK);
             return 0;
 
         case ID_PROJECT:
-            MessageBox(hWnd, L"GVHD: Thầy Đỗ Nguyễn Kha \nSVGReader phiên bản: 1.0", L"Thông tin Đồ án", MB_OK | MB_ICONINFORMATION);
+            MessageBox(hWnd, L"GVHD: Thầy Đỗ Nguyễn Kha \nSVGReader phiên bản: 1.0", L"Thông tin Đồ án", MB_OK);
             return 0;
         }
         break;
@@ -171,7 +194,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_DESTROY:
-        // Clean up
+        if (startupImage) delete startupImage;
         if (globalRenderer)
         {
             delete globalRenderer;

@@ -144,8 +144,10 @@
     <ResourceCompile Include="SVGReader.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="icon1.ico" />
     <Image Include="small.ico" />
     <Image Include="SVGReader.ico" />
+    <Image Include="SVGReaderCustomSmall.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

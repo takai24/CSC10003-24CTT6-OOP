@@ -33,10 +33,10 @@
     <ClInclude Include="Renderer.h">
       <Filter>Source Files\Renderer</Filter>
     </ClInclude>
-    <ClInclude Include="rapidxml.hpp">
+    <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stdafx.h">
+    <ClInclude Include="rapidxml.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -61,6 +61,12 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="SVGReader.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="SVGReaderCustomSmall.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="icon1.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
