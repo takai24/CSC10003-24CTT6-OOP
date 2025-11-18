@@ -7,7 +7,7 @@
 - Vẽ được các element cơ bản: `line`, `rect`, `circle`, `ellipse`, `polyline`, `polygon`, `path`.
 - Hỗ trợ các thuộc tính cơ bản: `stroke`, `stroke-width`, `fill`.
 
-**Hình ảnh minh họa**:
+**Hình ảnh thực tế**:
 
 ![Homepage](/Milestones/assets/milestone-1-homepage.png)
 
@@ -15,4 +15,5 @@
 
 ![sample.svg rendered](/Milestones/assets/milestone-1-sample-svg-rendered.png)
 
-**
+> [!IMPORTANT]
+> Backup: [Release 1](https://github.com/takai24/CSC10003-24CTT6-OOP/releases/tag/1.0)
