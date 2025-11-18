@@ -1,7 +1,0 @@
-<Solution>
-  <Configurations>
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="SVGReader/SVGReader.vcxproj" Id="34ab4c31-c624-4388-928e-eb392fbe7d1e" />
-</Solution>

@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "Renderer.h"
 
 using namespace rapidxml;
@@ -159,26 +159,26 @@ bool SvgRenderer::ParseSVG(const std::string& xml)
 
     // Polyline and Polygon 1st parser
     auto parsePoints = [&](const char* ptsStr)
-    {
-        std::vector<Gdiplus::PointF> pts;
-        if (!ptsStr) return pts;
-
-        std::stringstream ss(ptsStr);
-        std::string pair;
-
-        while (std::getline(ss, pair, ' '))
         {
-            size_t comma = pair.find(',');
-            if (comma == std::string::npos) continue;
+            std::vector<Gdiplus::PointF> pts;
+            if (!ptsStr) return pts;
 
-            float x = std::stof(pair.substr(0, comma));
-            float y = std::stof(pair.substr(comma + 1));
+            std::stringstream ss(ptsStr);
+            std::string pair;
 
-            pts.push_back(Gdiplus::PointF(x, y));
-        }
+            while (std::getline(ss, pair, ' '))
+            {
+                size_t comma = pair.find(',');
+                if (comma == std::string::npos) continue;
 
-        return pts;
-    };
+                float x = std::stof(pair.substr(0, comma));
+                float y = std::stof(pair.substr(comma + 1));
+
+                pts.push_back(Gdiplus::PointF(x, y));
+            }
+
+            return pts;
+        };
 
     // Polyline
     for (xml_node<>* node = svg->first_node("polyline"); node; node = node->next_sibling("polyline"))

@@ -46,7 +46,7 @@ VOID OnPaint(HDC hdc)
 // Open file dialog (accepts .svg only)
 bool OpenSVGFileDialog(wchar_t* outPath)
 {
-    OPENFILENAME ofn = {0};
+    OPENFILENAME ofn = { 0 };
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
     ofn.lpstrFile = outPath;
@@ -88,14 +88,14 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 
     // Create Menu bar
     HMENU hMenubar = CreateMenu();
-    
+
     // Create File menu
     HMENU hFileMenu = CreateMenu();
     AppendMenu(hFileMenu, MF_STRING, ID_FILE_OPEN, TEXT("Mở file"));
     AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFileMenu, MF_STRING, ID_FILE_EXIT, TEXT("Thoát"));
     AppendMenu(hMenubar, MF_POPUP, (UINT_PTR)hFileMenu, TEXT("File"));
-    
+
     // Create About menu
     HMENU hAboutMenu = CreateMenu();
     AppendMenu(hAboutMenu, MF_STRING, ID_GROUP, TEXT("Nhóm"));
@@ -159,7 +159,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
                 if (!globalRenderer)
                     globalRenderer = new SvgRenderer();
-                
+
                 if (globalRenderer->Load(filePath))
                 {
                     MessageBox(hWnd, L"File đã được mở.", L"Thành công!", MB_OK);
