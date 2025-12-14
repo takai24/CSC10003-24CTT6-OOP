@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "GdiPlusRenderer.h"
 
 using namespace Gdiplus;
@@ -153,9 +153,157 @@ void GdiPlusRenderer::DrawPath(const SvgPath& path) {
 void GdiPlusRenderer::DrawGroup(const SvgGroup& group) {
     GraphicsState state = graphics.Save();
     ApplyTransform(graphics, group.transformAttribute);
+
     for (const auto& child : group.children)
     {
-        child->Draw(*this); 
+        if (auto g = dynamic_cast<SvgGroup*>(child.get()))
+        {
+            g->Draw(*this);
+            continue;
+        }
+
+        Color oldStrokeColor, oldFillColor;
+        float oldStrokeWidth = 1.0f;
+
+        bool hasStroke = false, hasFill = false;
+
+        if (auto line = dynamic_cast<SvgLine*>(child.get()))
+        {
+            oldStrokeColor = line->strokeColor;
+            oldStrokeWidth = line->strokeWidth;
+
+            hasStroke = true;
+        }
+        else if (auto rect = dynamic_cast<SvgRect*>(child.get()))
+        {
+            oldStrokeColor = rect->strokeColor;
+            oldFillColor = rect->fillColor;
+            oldStrokeWidth = rect->strokeWidth;
+
+            hasStroke = true;
+            hasFill = true;
+        }
+        else if (auto circle = dynamic_cast<SvgCircle*>(child.get()))
+        {
+            oldStrokeColor = circle->strokeColor;
+            oldFillColor = circle->fillColor;
+            oldStrokeWidth = circle->strokeWidth;
+
+            hasStroke = true;
+            hasFill = true;
+        }
+        else if (auto e = dynamic_cast<SvgEllipse*>(child.get()))
+        {
+            oldStrokeColor = e->strokeColor;
+            oldFillColor = e->fillColor;
+            oldStrokeWidth = e->strokeWidth;
+
+            hasStroke = true;
+            hasFill = true;
+        }
+        else if (auto pl = dynamic_cast<SvgPolyline*>(child.get()))
+        {
+            oldStrokeColor = pl->strokeColor;
+            oldFillColor = pl->fillColor;
+            oldStrokeWidth = pl->strokeWidth;
+
+            hasStroke = true;
+            hasFill = true;
+        }
+        else if (auto pg = dynamic_cast<SvgPolygon*>(child.get()))
+        {
+            oldStrokeColor = pg->strokeColor;
+            oldFillColor = pg->fillColor;
+            oldStrokeWidth = pg->strokeWidth;
+
+            hasStroke = true;
+            hasFill = true;
+        }
+        else if (auto path = dynamic_cast<SvgPath*>(child.get()))
+        {
+            oldStrokeColor = path->strokeColor;
+            oldFillColor = path->fillColor;
+            oldStrokeWidth = path->strokeWidth;
+
+            hasStroke = true;
+            hasFill = true;
+        }
+
+        if (hasStroke)
+        {
+            auto c = (dynamic_cast<SvgLine*>(child.get()) ? dynamic_cast<SvgLine*>(child.get())->strokeColor
+                : dynamic_cast<SvgRect*>(child.get()) ? dynamic_cast<SvgRect*>(child.get())->strokeColor
+                : dynamic_cast<SvgCircle*>(child.get()) ? dynamic_cast<SvgCircle*>(child.get())->strokeColor
+                : dynamic_cast<SvgEllipse*>(child.get()) ? dynamic_cast<SvgEllipse*>(child.get())->strokeColor
+                : dynamic_cast<SvgPolyline*>(child.get()) ? dynamic_cast<SvgPolyline*>(child.get())->strokeColor
+                : dynamic_cast<SvgPolygon*>(child.get()) ? dynamic_cast<SvgPolygon*>(child.get())->strokeColor
+                : dynamic_cast<SvgPath*>(child.get())->strokeColor);
+
+            if (group.hasStroke)
+                c = group.strokeColor;
+
+            if (group.hasStrokeOpacity)
+            {
+                c.SetValue((BYTE)(group.strokeOpacity * 255) << 24 | (c.GetValue() & 0x00FFFFFF));
+            }
+
+            if (auto line = dynamic_cast<SvgLine*>(child.get())) line->strokeColor = c;
+            else if (auto rect = dynamic_cast<SvgRect*>(child.get())) rect->strokeColor = c;
+            else if (auto circle = dynamic_cast<SvgCircle*>(child.get())) circle->strokeColor = c;
+            else if (auto e = dynamic_cast<SvgEllipse*>(child.get())) e->strokeColor = c;
+            else if (auto pl = dynamic_cast<SvgPolyline*>(child.get())) pl->strokeColor = c;
+            else if (auto pg = dynamic_cast<SvgPolygon*>(child.get())) pg->strokeColor = c;
+            else if (auto path = dynamic_cast<SvgPath*>(child.get())) path->strokeColor = c;
+        }
+
+        if (hasFill && group.hasFill)
+        {
+            Color c = group.fillColor;
+            if (group.hasFillOpacity)
+                c.SetValue((BYTE)(group.fillOpacity * 255) << 24 | (c.GetValue() & 0x00FFFFFF));
+
+            if (auto rect = dynamic_cast<SvgRect*>(child.get())) rect->fillColor = c;
+            else if (auto circle = dynamic_cast<SvgCircle*>(child.get())) circle->fillColor = c;
+            else if (auto e = dynamic_cast<SvgEllipse*>(child.get())) e->fillColor = c;
+            else if (auto pl = dynamic_cast<SvgPolyline*>(child.get())) pl->fillColor = c;
+            else if (auto pg = dynamic_cast<SvgPolygon*>(child.get())) pg->fillColor = c;
+            else if (auto path = dynamic_cast<SvgPath*>(child.get())) path->fillColor = c;
+        }
+
+        if (hasStroke && group.hasStrokeWidth)
+        {
+            if (auto line = dynamic_cast<SvgLine*>(child.get())) line->strokeWidth *= group.strokeWidth;
+            else if (auto rect = dynamic_cast<SvgRect*>(child.get())) rect->strokeWidth *= group.strokeWidth;
+            else if (auto circle = dynamic_cast<SvgCircle*>(child.get())) circle->strokeWidth *= group.strokeWidth;
+            else if (auto e = dynamic_cast<SvgEllipse*>(child.get())) e->strokeWidth *= group.strokeWidth;
+            else if (auto pl = dynamic_cast<SvgPolyline*>(child.get())) pl->strokeWidth *= group.strokeWidth;
+            else if (auto pg = dynamic_cast<SvgPolygon*>(child.get())) pg->strokeWidth *= group.strokeWidth;
+            else if (auto path = dynamic_cast<SvgPath*>(child.get())) path->strokeWidth *= group.strokeWidth;
+        }
+
+        child->Draw(*this);
+
+        if (hasStroke)
+        {
+            if (auto line = dynamic_cast<SvgLine*>(child.get())) line->strokeColor = oldStrokeColor, line->strokeWidth = oldStrokeWidth;
+            else if (auto rect = dynamic_cast<SvgRect*>(child.get())) rect->strokeColor = oldStrokeColor, rect->strokeWidth = oldStrokeWidth;
+            else if (auto circle = dynamic_cast<SvgCircle*>(child.get())) circle->strokeColor = oldStrokeColor, circle->strokeWidth = oldStrokeWidth;
+            else if (auto e = dynamic_cast<SvgEllipse*>(child.get())) e->strokeColor = oldStrokeColor, e->strokeWidth = oldStrokeWidth;
+            else if (auto pl = dynamic_cast<SvgPolyline*>(child.get())) pl->strokeColor = oldStrokeColor, pl->strokeWidth = oldStrokeWidth;
+            else if (auto pg = dynamic_cast<SvgPolygon*>(child.get())) pg->strokeColor = oldStrokeColor, pg->strokeWidth = oldStrokeWidth;
+            else if (auto path = dynamic_cast<SvgPath*>(child.get())) path->strokeColor = oldStrokeColor, path->strokeWidth = oldStrokeWidth;
+        }
+
+        if (hasFill)
+        {
+            if (auto rect = dynamic_cast<SvgRect*>(child.get())) rect->fillColor = oldFillColor;
+            else if (auto circle = dynamic_cast<SvgCircle*>(child.get())) circle->fillColor = oldFillColor;
+            else if (auto e = dynamic_cast<SvgEllipse*>(child.get())) e->fillColor = oldFillColor;
+            else if (auto pl = dynamic_cast<SvgPolyline*>(child.get())) pl->fillColor = oldFillColor;
+            else if (auto pg = dynamic_cast<SvgPolygon*>(child.get())) pg->fillColor = oldFillColor;
+            else if (auto path = dynamic_cast<SvgPath*>(child.get())) path->fillColor = oldFillColor;
+        }
     }
+
     graphics.Restore(state);
 }
