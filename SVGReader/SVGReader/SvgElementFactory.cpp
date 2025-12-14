@@ -118,9 +118,8 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         const std::string sw = node.getAttribute("stroke-width");
         line->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
         element = std::move(line);
-    }
-
-    if (tag == "rect")
+    } 
+    else if (tag == "rect")
     {
         auto r = std::make_unique<SvgRect>();
         r->x = std::stof(node.getAttribute("x"));
@@ -138,8 +137,7 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         r->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
         element = std::move(r);
     }
-
-    if (tag == "circle")
+    else if (tag == "circle")
     {
         auto c = std::make_unique<SvgCircle>();
         c->cx = std::stof(node.getAttribute("cx"));
@@ -156,8 +154,7 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         c->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
         element = std::move(c);
     }
-
-    if (tag == "ellipse")
+    else if (tag == "ellipse")
     {
         auto e = std::make_unique<SvgEllipse>();
         e->cx = std::stof(node.getAttribute("cx"));
@@ -175,8 +172,7 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         e->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
         element = std::move(e);
     }
-
-    if (tag == "polyline")
+    else if (tag == "polyline")
     {
         auto p = std::make_unique<SvgPolyline>();
         p->points = ParsePoints(node.getAttribute("points"));
@@ -192,8 +188,7 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
 
         element = std::move(p);
     }
-
-    if (tag == "polygon")
+    else if (tag == "polygon")
     {
         auto p = std::make_unique<SvgPolygon>();
         p->points = ParsePoints(node.getAttribute("points"));
@@ -208,8 +203,7 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         p->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
         element = std::move(p);
     }
-
-    if (tag == "text")
+    else if (tag == "text")
     {
         std::string textContent = node.getTextContent();
         if (textContent.find("Demo") != std::string::npos) {
@@ -233,8 +227,7 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         t->text = std::wstring(textContent.begin(), textContent.end());
         element = std::move(t);
     }
-
-    if (tag == "path") {
+    else if (tag == "path") {
         auto p = std::make_unique<SvgPath>();
 
         std::string d = node.getAttribute("d");
@@ -251,7 +244,6 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
 
         element = std::move(p);
     }
-
     if (element) {
         std::string transform = node.getAttribute("transform");
         if (!transform.empty()) {
