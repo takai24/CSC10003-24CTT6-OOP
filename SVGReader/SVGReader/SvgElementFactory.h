@@ -8,8 +8,8 @@ class SvgElementFactory
 {
 public:
     std::unique_ptr<ISvgElement> CreateElement(const IXMLNode &node) const;
+    Gdiplus::Color ParseColor(const std::string &value) const;
 
 private:
-    Gdiplus::Color ParseColor(const std::string &value) const;
     std::vector<Gdiplus::PointF> ParsePoints(const std::string &ptsStr) const;
 };
