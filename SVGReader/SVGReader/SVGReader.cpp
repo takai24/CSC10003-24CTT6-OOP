@@ -49,6 +49,7 @@ VOID OnPaint(HDC hdc)
     // Actually draw the SVG via new OOP renderer
     if (globalRenderer)
     {
+        graphics.ScaleTransform(0.9f, 0.9f);
         GdiPlusRenderer renderer(graphics);
         globalRenderer->GetDocument().Render(renderer);
     }

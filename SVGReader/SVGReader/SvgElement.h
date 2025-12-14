@@ -1,8 +1,12 @@
 #pragma once
 
-#include "stdafx.h"
+#include <gdiplus.h>
+#include <string>
+#include <vector>
+#include <memory>
 
-using namespace Gdiplus;
+using Gdiplus::Color;
+using Gdiplus::PointF;
 
 class IRenderer;
 
@@ -10,6 +14,7 @@ class ISvgElement
 {
 public:
     virtual ~ISvgElement() {}
+    std::string transformAttribute;
     virtual void Draw(IRenderer &renderer) const = 0;
 };
 
@@ -68,7 +73,7 @@ public:
     std::vector<PointF> points;
     Color strokeColor{255, 0, 0, 0};
     float strokeWidth{1.0f};
-
+    Gdiplus::Color fillColor;
     void Draw(IRenderer &renderer) const override;
 };
 
@@ -107,3 +112,16 @@ public:
 
     void Draw(IRenderer &renderer) const override;
 };
+
+class SvgPath : public ISvgElement {
+public:
+    std::unique_ptr<Gdiplus::GraphicsPath> pathData;
+
+    Gdiplus::Color fillColor;
+    Gdiplus::Color strokeColor;
+    float strokeWidth;
+
+    void Draw(IRenderer& renderer) const override;
+};
+
+

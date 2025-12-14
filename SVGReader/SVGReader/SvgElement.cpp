@@ -39,9 +39,9 @@ void SvgText::Draw(IRenderer &renderer) const
 
 void SvgGroup::Draw(IRenderer &renderer) const
 {
-    for (const auto &child : children)
-    {
-        if (child)
-            child->Draw(renderer);
-    }
+    renderer.DrawGroup(*this);
+}
+
+void SvgPath::Draw(IRenderer& renderer) const {
+    renderer.DrawPath(*this);
 }
