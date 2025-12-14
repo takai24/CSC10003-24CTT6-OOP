@@ -38,7 +38,43 @@ void SvgParser::ParseChildren(const IXMLNode &parent, SvgDocument &document, Svg
         if (tag == "g")
         {
             auto group = std::make_unique<SvgGroup>();
-            SvgGroup *groupRaw = group.get();
+            SvgGroup* groupRaw = group.get();
+
+            if (!child.getAttribute("transform").empty())
+            {
+                group->transformAttribute = child.getAttribute("transform");
+            }
+
+            if (!child.getAttribute("stroke").empty())
+            {
+                group->hasStroke = true;
+                group->strokeColor = factory.ParseColor(child.getAttribute("stroke"));
+            }
+
+            if (!child.getAttribute("fill").empty())
+            {
+                group->hasFill = true;
+                group->fillColor = factory.ParseColor(child.getAttribute("fill"));
+            }
+
+            if (!child.getAttribute("stroke-width").empty())
+            {
+                group->hasStrokeWidth = true;
+                group->strokeWidth = std::stof(child.getAttribute("stroke-width"));
+            }
+
+            if (!child.getAttribute("stroke-opacity").empty())
+            {
+                group->hasStrokeOpacity = true;
+                group->strokeOpacity = std::stof(child.getAttribute("stroke-opacity"));
+            }
+
+            if (!child.getAttribute("fill-opacity").empty())
+            {
+                group->hasFillOpacity = true;
+                group->fillOpacity = std::stof(child.getAttribute("fill-opacity"));
+            }
+
             if (currentGroup)
             {
                 currentGroup->AddChild(std::move(group));
