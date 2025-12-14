@@ -1,6 +1,11 @@
 ﻿#include "stdafx.h"
-#include "Renderer.h"
+#include "SvgReader.h"
+#include "SvgElementFactory.h"
 #include "GdiPlusRenderer.h"
+#include <windows.h>
+#include <objidl.h>
+#include <gdiplus.h>
+#include <commdlg.h>
 
 // Menu item IDs
 #define ID_FILE_OPEN 9001
@@ -8,21 +13,36 @@
 #define ID_GROUP 9003
 #define ID_PROJECT 9004
 
+#define ID_BTN_ZOOM_IN   101
+#define ID_BTN_ZOOM_OUT  102
+#define ID_BTN_ROTATE    103
+#define ID_BTN_RESET     104
+#define ID_BTN_LEFT      105
+#define ID_BTN_RIGHT     106
+#define ID_BTN_UP        107
+#define ID_BTN_DOWN      108
+
 // Global SVGRenderer Instance
-SvgRenderer *globalRenderer = nullptr;
-Image *startupImage = nullptr;
+SvgRenderer* globalRenderer = nullptr;
+Image* startupImage = nullptr;
+// Default
+float g_Scale = 1.0f;
+float g_Angle = 0.0f;
+float g_OffsetX = 0.0f;
+float g_OffsetY = 0.0f;
 
 // Check if is first run
 bool isFirstRun = true;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
-bool OpenSVGFileDialog(wchar_t *outPath);
+bool OpenSVGFileDialog(wchar_t* outPath);
+void SetButtonsVisible(HWND hWnd, bool visible);
 
 VOID OnPaint(HDC hdc)
 {
     Graphics graphics(hdc);
-	graphics.Clear(Color(255, 255, 255, 255));
+    graphics.Clear(Color(255, 255, 255, 255));
 
     if (isFirstRun)
     {
@@ -39,27 +59,42 @@ VOID OnPaint(HDC hdc)
         if (startupImage && startupImage->GetLastStatus() == Ok)
         {
             graphics.DrawImage(startupImage, 20, 20,
-                               startupImage->GetWidth(),
-                               startupImage->GetHeight());
+                startupImage->GetWidth(),
+                startupImage->GetHeight());
         }
-
-        isFirstRun = false;
     }
 
     // Actually draw the SVG via new OOP renderer
     if (globalRenderer)
     {
-        graphics.ScaleTransform(0.9f, 0.9f);
         GdiPlusRenderer renderer(graphics);
+        // Scale 90%
+        graphics.ScaleTransform(0.9f, 0.9f);
+        // Move center 
+        RECT rect;
+        GetClientRect(WindowFromDC(hdc), &rect);
+        float g_CenterX = (float)(rect.right - rect.left) / 2.0f;
+        float g_CenterY = (float)(rect.bottom - rect.top) / 2.0f;
+
+        graphics.TranslateTransform(g_CenterX, g_CenterY);
+        // Pan
+        graphics.TranslateTransform(g_OffsetX, g_OffsetY);
+        // Rotate
+        graphics.RotateTransform(g_Angle);
+        // Zoom
+        graphics.ScaleTransform(g_Scale, g_Scale);
+
+        graphics.TranslateTransform(-g_CenterX, -g_CenterY);
+
         globalRenderer->GetDocument().Render(renderer);
+        graphics.ResetTransform();
     }
-    globalRenderer = nullptr;
 }
 
 // Open file dialog (accepts .svg only)
-bool OpenSVGFileDialog(wchar_t *outPath)
+bool OpenSVGFileDialog(wchar_t* outPath)
 {
-    OPENFILENAME ofn = {0};
+    OPENFILENAME ofn = { 0 };
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
     ofn.lpstrFile = outPath;
@@ -145,6 +180,20 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
     return msg.wParam;
 }
 
+void SetButtonsVisible(HWND hWnd, bool visible)
+{
+    int showCmd = visible ? SW_SHOW : SW_HIDE;
+    int btnIDs[] = {
+        ID_BTN_ZOOM_IN, ID_BTN_ZOOM_OUT, ID_BTN_ROTATE, ID_BTN_RESET,
+        ID_BTN_LEFT, ID_BTN_RIGHT, ID_BTN_UP, ID_BTN_DOWN
+    };
+
+    for (int id : btnIDs) {
+        HWND hBtn = GetDlgItem(hWnd, id);
+        if (hBtn) ShowWindow(hBtn, showCmd);
+    }
+}
+
 // Actually creates Window
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -155,16 +204,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
         startupImage = new Image(L"fit.png");
-        return 0;
+
+        CreateWindow(TEXT("BUTTON"), TEXT("Zoom +"), WS_CHILD, 100, 400, 80, 30, hWnd, (HMENU)ID_BTN_ZOOM_IN, NULL, NULL);
+        CreateWindow(TEXT("BUTTON"), TEXT("Zoom -"), WS_CHILD, 200, 400, 80, 30, hWnd, (HMENU)ID_BTN_ZOOM_OUT, NULL, NULL);
+        CreateWindow(TEXT("BUTTON"), TEXT("Rotate"), WS_CHILD, 300, 400, 80, 30, hWnd, (HMENU)ID_BTN_ROTATE, NULL, NULL);
+
+        CreateWindow(TEXT("BUTTON"), TEXT("<"), WS_CHILD, 400, 400, 30, 30, hWnd, (HMENU)ID_BTN_LEFT, NULL, NULL);
+        CreateWindow(TEXT("BUTTON"), TEXT("^"), WS_CHILD, 450, 375, 30, 30, hWnd, (HMENU)ID_BTN_UP, NULL, NULL);
+        CreateWindow(TEXT("BUTTON"), TEXT("v"), WS_CHILD, 450, 425, 30, 30, hWnd, (HMENU)ID_BTN_DOWN, NULL, NULL);
+        CreateWindow(TEXT("BUTTON"), TEXT(">"), WS_CHILD, 500, 400, 30, 30, hWnd, (HMENU)ID_BTN_RIGHT, NULL, NULL);
+        CreateWindow(TEXT("BUTTON"), TEXT("Reset"), WS_CHILD, 550, 400, 80, 30, hWnd, (HMENU)ID_BTN_RESET, NULL, NULL);
+        break;
+
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
         case ID_FILE_OPEN:
         {
-            wchar_t filePath[MAX_PATH] = {0};
+            wchar_t filePath[MAX_PATH] = { 0 };
             if (OpenSVGFileDialog(filePath))
             {
-                wchar_t *ext = wcsrchr(filePath, L'.');
+                wchar_t* ext = wcsrchr(filePath, L'.');
                 if (ext && _wcsicmp(ext, L".svg") != 0)
                 {
                     MessageBox(hWnd, L"Chọn file .svg", L"Invalid File", MB_OK);
@@ -177,6 +237,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 if (globalRenderer->Load(filePath))
                 {
                     MessageBox(hWnd, L"File đã được mở.", L"Thành công!", MB_OK);
+
+                    isFirstRun = false;
+                    SetButtonsVisible(hWnd, true);
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
                 else
@@ -198,6 +261,49 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case ID_PROJECT:
             MessageBox(hWnd, L"GVHD: Thầy Đỗ Nguyễn Kha \nSVGReader phiên bản: 1.0", L"Thông tin Đồ án", MB_OK);
             return 0;
+
+        case ID_BTN_ZOOM_IN:
+            g_Scale *= 1.1f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
+
+        case ID_BTN_ZOOM_OUT:
+            g_Scale /= 1.1f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
+
+        case ID_BTN_ROTATE:
+            g_Angle += 45.0f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
+
+        case ID_BTN_LEFT:
+            g_OffsetX -= 50.0f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
+
+        case ID_BTN_RIGHT:
+            g_OffsetX += 50.0f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
+
+        case ID_BTN_UP:
+            g_OffsetY -= 50.0f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
+
+        case ID_BTN_DOWN:
+            g_OffsetY += 50.0f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
+
+        case ID_BTN_RESET:
+            g_Scale = 1.0f;
+            g_Angle = 0.0f;
+            g_OffsetX = 0.0f;
+            g_OffsetY = 0.0f;
+            InvalidateRect(hWnd, NULL, TRUE);
+            break;
         }
         break;
 
