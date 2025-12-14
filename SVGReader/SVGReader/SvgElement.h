@@ -103,6 +103,21 @@ public:
 class SvgGroup : public ISvgElement
 {
 public:
+    bool hasStroke = false;
+    Gdiplus::Color strokeColor;
+
+    bool hasFill = false;
+    Gdiplus::Color fillColor;
+
+    bool hasStrokeWidth = false;
+    float strokeWidth = 1.0f;
+
+    bool hasStrokeOpacity = false;
+    float strokeOpacity = 1.0f;
+
+    bool hasFillOpacity = false;
+    float fillOpacity = 1.0f;
+
     std::vector<std::unique_ptr<ISvgElement>> children;
 
     void AddChild(std::unique_ptr<ISvgElement> child)
@@ -110,7 +125,7 @@ public:
         children.push_back(std::move(child));
     }
 
-    void Draw(IRenderer &renderer) const override;
+    void Draw(IRenderer& renderer) const override;
 };
 
 class SvgPath : public ISvgElement {
