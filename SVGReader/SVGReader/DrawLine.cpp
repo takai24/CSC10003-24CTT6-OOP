@@ -1,11 +1,13 @@
-#include "DrawLine.h"
+#include "stdafx.h"
+#include "GdiPlusRenderer.h"
 
-// Draw loaded elements
-void SvgRenderer::Draw(Graphics& g)
+using namespace Gdiplus;
+
+void GdiPlusRenderer::DrawLine(const SvgLine &line)
 {
-    for (const auto& line : lines)
-    {
-        Pen pen(line.color, line.strokeWidth);
-        g.DrawLine(&pen, line.x1, line.y1, line.x2, line.y2);
-    }
+    GraphicsState state = graphics.Save();
+    ApplyTransform(graphics, line.transformAttribute);
+    Pen pen(line.strokeColor, line.strokeWidth);
+    graphics.DrawLine(&pen, line.x1, line.y1, line.x2, line.y2);
+    graphics.Restore(state);
 }

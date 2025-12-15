@@ -142,6 +142,16 @@
     <ClInclude Include="SvgElementFactory.h" />
     <ClInclude Include="SvgParser.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="DrawLine.h" />
+    <ClInclude Include="DrawRect.h" />
+    <ClInclude Include="DrawCircle.h" />
+    <ClInclude Include="DrawEllipse.h" />
+    <ClInclude Include="DrawPolyline.h" />
+    <ClInclude Include="DrawPolygon.h" />
+    <ClInclude Include="DrawText.h" />
+    <ClInclude Include="DrawPath.h" />
+    <ClInclude Include="DrawGroup.h" />
+    <ClInclude Include="ApplyTransform.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="RapidXmlNodeAdapter.cpp" />
@@ -153,6 +163,16 @@
     <ClCompile Include="SvgDocument.cpp" />
     <ClCompile Include="SvgElementFactory.cpp" />
     <ClCompile Include="SvgParser.cpp" />
+    <ClCompile Include="DrawLine.cpp" />
+    <ClCompile Include="DrawRect.cpp" />
+    <ClCompile Include="DrawCircle.cpp" />
+    <ClCompile Include="DrawEllipse.cpp" />
+    <ClCompile Include="DrawPolyline.cpp" />
+    <ClCompile Include="DrawPolygon.cpp" />
+    <ClCompile Include="DrawText.cpp" />
+    <ClCompile Include="DrawPath.cpp" />
+    <ClCompile Include="DrawGroup.cpp" />
+    <ClCompile Include="ApplyTransform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SVGReader.rc" />
