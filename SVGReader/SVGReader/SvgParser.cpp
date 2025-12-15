@@ -23,6 +23,75 @@ bool SvgParser::Parse(const std::string &xml, SvgDocument &document)
         return false;
 
     RapidXmlNodeAdapter root(svg);
+    // Extract width/height or viewBox from root svg element if present
+    auto parseDimension = [](const std::string &s) -> float
+    {
+        if (s.empty())
+            return 0.0f;
+        // take numeric prefix (handles values like "800", "800px", "800.5")
+        size_t i = 0;
+        // skip leading spaces
+        while (i < s.size() && isspace(static_cast<unsigned char>(s[i])))
+            ++i;
+        size_t start = i;
+        // accept sign
+        if (i < s.size() && (s[i] == '+' || s[i] == '-'))
+            ++i;
+        bool seenDigit = false;
+        while (i < s.size() && (isdigit(static_cast<unsigned char>(s[i]))))
+        {
+            ++i;
+            seenDigit = true;
+        }
+        if (i < s.size() && s[i] == '.')
+        {
+            ++i;
+            while (i < s.size() && isdigit(static_cast<unsigned char>(s[i])))
+            {
+                ++i;
+                seenDigit = true;
+            }
+        }
+        if (!seenDigit)
+            return 0.0f;
+        try
+        {
+            return std::stof(s.substr(start, i - start));
+        }
+        catch (...)
+        {
+            return 0.0f;
+        }
+    };
+
+    std::string wattr = root.getAttribute("width");
+    std::string hattr = root.getAttribute("height");
+    std::string vb = root.getAttribute("viewBox");
+    if (!wattr.empty() && !hattr.empty())
+    {
+        float w = parseDimension(wattr);
+        float h = parseDimension(hattr);
+        if (w > 0 && h > 0)
+            document.SetSize(w, h);
+    }
+    else if (!vb.empty())
+    {
+        // viewBox: minx miny width height
+        // split by spaces or commas
+        std::vector<float> nums;
+        std::string tmp = vb;
+        for (char &c : tmp)
+            if (c == ',')
+                c = ' ';
+        std::stringstream ss(tmp);
+        float v;
+        while (ss >> v)
+            nums.push_back(v);
+        if (nums.size() >= 4)
+        {
+            document.SetSize(nums[2], nums[3]);
+        }
+    }
     ParseChildren(root, document, nullptr);
     return true;
 }
@@ -38,7 +107,7 @@ void SvgParser::ParseChildren(const IXMLNode &parent, SvgDocument &document, Svg
         if (tag == "g")
         {
             auto group = std::make_unique<SvgGroup>();
-            SvgGroup* groupRaw = group.get();
+            SvgGroup *groupRaw = group.get();
 
             if (!child.getAttribute("transform").empty())
             {

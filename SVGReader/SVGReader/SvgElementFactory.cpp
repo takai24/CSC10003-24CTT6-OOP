@@ -2,107 +2,473 @@
 #include "SvgElementFactory.h"
 #include <vector>
 #include <sstream>
+#include <cmath>
+#include <algorithm>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 using namespace Gdiplus;
 
 Gdiplus::Color ApplyOpacity(Gdiplus::Color c, float opacity)
 {
-    if (opacity < 0.0f) opacity = 0.0f;
-    if (opacity > 1.0f) opacity = 1.0f;
-
-    BYTE alpha = static_cast<BYTE>(opacity * 255);
-
+    if (opacity < 0.0f)
+        opacity = 0.0f;
+    if (opacity > 1.0f)
+        opacity = 1.0f;
+    // Combine original color alpha with provided opacity multiplicatively
+    float origA = c.GetAlpha() / 255.0f;
+    float finalA = origA * opacity;
+    int alphaInt = static_cast<int>(finalA * 255.0f + 0.5f);
+    if (alphaInt < 0)
+        alphaInt = 0;
+    if (alphaInt > 255)
+        alphaInt = 255;
+    BYTE alpha = static_cast<BYTE>(alphaInt);
     return Gdiplus::Color(alpha, c.GetR(), c.GetG(), c.GetB());
 }
 
-std::unique_ptr<Gdiplus::GraphicsPath> ParsePathData(const std::string& d)
+std::unique_ptr<Gdiplus::GraphicsPath> ParsePathData(const std::string &d)
 {
     auto path = std::make_unique<Gdiplus::GraphicsPath>();
-    std::string cleanStr = d;
+    const std::string &s = d;
+    size_t i = 0;
+    float currentX = 0, currentY = 0;
+    float startX = 0, startY = 0;
+    char lastCmd = 0;
+    float lastCtrlX = 0, lastCtrlY = 0; // for S/T commands
 
-    for (char& c : cleanStr) if (c == ',') c = ' ';
-
-    std::stringstream ss(cleanStr);
-
-    char command = 0;
-    float currentX = 0, currentY = 0; 
-    float startX = 0, startY = 0;    
-
-    std::string token;
-    while (ss >> token)
+    // Helper: convert SVG arc to one or more cubic beziers and add to path
+    auto arcToBeziers = [&](double x0, double y0, double rx, double ry, double xAxisRotationDeg,
+                            int largeArcFlag, int sweepFlag, double x, double y)
     {
-        char firstChar = token[0];
-        if (isalpha(firstChar)) {
-            command = firstChar;
-           
-            if (command == 'Z' || command == 'z') {
-                path->CloseFigure();
-                continue; 
+        if (x0 == x && y0 == y)
+            return; // no-op
+        if (rx == 0.0 || ry == 0.0)
+        {
+            path->AddLine((float)x0, (float)y0, (float)x, (float)y);
+            return;
+        }
+
+        double phi = xAxisRotationDeg * M_PI / 180.0;
+        double cosPhi = cos(phi), sinPhi = sin(phi);
+
+        // Step 1: compute (x1', y1')
+        double dx2 = (x0 - x) / 2.0;
+        double dy2 = (y0 - y) / 2.0;
+        double x1p = cosPhi * dx2 + sinPhi * dy2;
+        double y1p = -sinPhi * dx2 + cosPhi * dy2;
+
+        // Ensure radii are large enough
+        double rxAbs = fabs(rx);
+        double ryAbs = fabs(ry);
+        double rxSq = rxAbs * rxAbs;
+        double rySq = ryAbs * ryAbs;
+        double x1pSq = x1p * x1p;
+        double y1pSq = y1p * y1p;
+
+        double lambda = x1pSq / rxSq + y1pSq / rySq;
+        if (lambda > 1.0)
+        {
+            double factor = sqrt(lambda);
+            rxAbs *= factor;
+            ryAbs *= factor;
+            rxSq = rxAbs * rxAbs;
+            rySq = ryAbs * ryAbs;
+        }
+
+        // Step 2: compute center
+        double sign = (largeArcFlag == sweepFlag) ? -1.0 : 1.0;
+        double sq = ((rxSq * rySq) - (rxSq * y1pSq) - (rySq * x1pSq)) / (rxSq * y1pSq + rySq * x1pSq);
+        sq = (sq < 0) ? 0 : sq;
+        double coef = sign * sqrt(sq);
+        double cxp = coef * ((rxAbs * y1p) / ryAbs);
+        double cyp = coef * (-(ryAbs * x1p) / rxAbs);
+
+        // Step 3: compute center in original coords
+        double cx = cosPhi * cxp - sinPhi * cyp + (x0 + x) / 2.0;
+        double cy = sinPhi * cxp + cosPhi * cyp + (y0 + y) / 2.0;
+
+        // Step 4: compute start and delta angles
+        auto vectorAngle = [&](double ux, double uy, double vx, double vy)
+        {
+            double dot = ux * vx + uy * vy;
+            double len = sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+            // Use parenthesized std::min/std::max to avoid Windows min/max macro collision
+            double clamped = (std::max)(-1.0, (std::min)(1.0, dot / len));
+            double ang = acos(clamped);
+            if (ux * vy - uy * vx < 0)
+                ang = -ang;
+            return ang;
+        };
+
+        double ux = (x1p - cxp) / rxAbs;
+        double uy = (y1p - cyp) / ryAbs;
+        double vx = (-x1p - cxp) / rxAbs;
+        double vy = (-y1p - cyp) / ryAbs;
+        double startAngle = atan2(uy, ux);
+        double deltaAngle = vectorAngle(ux, uy, vx, vy);
+
+        if (!sweepFlag && deltaAngle > 0)
+            deltaAngle -= 2 * M_PI;
+        else if (sweepFlag && deltaAngle < 0)
+            deltaAngle += 2 * M_PI;
+
+        // Split into segments of max PI/2
+        int segments = static_cast<int>(ceil(fabs(deltaAngle) / (M_PI / 2.0)));
+        double delta = deltaAngle / segments;
+
+        for (int iSeg = 0; iSeg < segments; ++iSeg)
+        {
+            double t1 = startAngle + iSeg * delta;
+            double t2 = t1 + delta;
+            double cosT1 = cos(t1), sinT1 = sin(t1);
+            double cosT2 = cos(t2), sinT2 = sin(t2);
+
+            // endpoints
+            double x1 = cx + rxAbs * (cosPhi * cosT1 - sinPhi * sinT1);
+            double y1 = cy + ryAbs * (sinPhi * cosT1 + cosPhi * sinT1);
+            double x4 = cx + rxAbs * (cosPhi * cosT2 - sinPhi * sinT2);
+            double y4 = cy + ryAbs * (sinPhi * cosT2 + cosPhi * sinT2);
+
+            // control points
+            double tanDelta = tan((t2 - t1) / 2.0);
+            double alpha = (sin(t2 - t1) * (sqrt(4.0 + 3.0 * tanDelta * tanDelta) - 1.0)) / 3.0;
+
+            double x2 = x1 + alpha * (-rxAbs * (cosPhi * sinT1 + sinPhi * cosT1));
+            double y2 = y1 + alpha * (-ryAbs * (sinPhi * sinT1 - cosPhi * cosT1));
+
+            double x3 = x4 + alpha * (rxAbs * (cosPhi * sinT2 + sinPhi * cosT2));
+            double y3 = y4 + alpha * (ryAbs * (sinPhi * sinT2 - cosPhi * cosT2));
+
+            // For the first segment, ensure we start at current point
+            if (iSeg == 0)
+            {
+                path->AddLine((float)x0, (float)y0, (float)x1, (float)y1);
             }
-            if (token.length() == 1) continue;
+            path->AddBezier((float)x1, (float)y1, (float)x2, (float)y2, (float)x3, (float)y3, (float)x4, (float)y4);
         }
-        else {
-            int len = static_cast<int>(token.length());
-            for (int i = 0; i < len; i++) ss.unget();
+    };
+
+    auto skipSpaces = [&](void)
+    {
+        while (i < s.size() && (s[i] == ' ' || s[i] == ',' || s[i] == '\n' || s[i] == '\t' || s[i] == '\r'))
+            ++i;
+    };
+
+    auto parseNumber = [&](float &out) -> bool
+    {
+        skipSpaces();
+        if (i >= s.size())
+            return false;
+        size_t start = i;
+        // accept sign
+        if (s[i] == '+' || s[i] == '-')
+            ++i;
+        bool hasDigits = false;
+        while (i < s.size() && isdigit(static_cast<unsigned char>(s[i])))
+        {
+            ++i;
+            hasDigits = true;
+        }
+        if (i < s.size() && s[i] == '.')
+        {
+            ++i;
+            while (i < s.size() && isdigit(static_cast<unsigned char>(s[i])))
+            {
+                ++i;
+                hasDigits = true;
+            }
+        }
+        if (i < s.size() && (s[i] == 'e' || s[i] == 'E'))
+        {
+            ++i;
+            if (i < s.size() && (s[i] == '+' || s[i] == '-'))
+                ++i;
+            bool hasExp = false;
+            while (i < s.size() && isdigit(static_cast<unsigned char>(s[i])))
+            {
+                ++i;
+                hasExp = true;
+            }
+            if (!hasExp)
+            { /* rollback? */
+            }
+        }
+        if (!hasDigits)
+            return false;
+        try
+        {
+            out = std::stof(s.substr(start, i - start));
+        }
+        catch (...)
+        {
+            return false;
+        }
+        return true;
+    };
+
+    while (i < s.size())
+    {
+        skipSpaces();
+        if (i >= s.size())
+            break;
+        char ch = s[i];
+        if (isalpha(static_cast<unsigned char>(ch)))
+        {
+            ++i;
+            lastCmd = ch;
+        }
+        else if (lastCmd == 0)
+        {
+            // invalid
+            ++i;
+            continue;
+        }
+        else
+        {
+            ch = lastCmd; // implicit command repeat
         }
 
+        bool rel = islower(static_cast<unsigned char>(ch));
+        char cmd = static_cast<char>(toupper(static_cast<unsigned char>(ch)));
 
-        if (command == 'M') 
+        if (cmd == 'Z')
+        {
+            path->CloseFigure();
+            currentX = startX;
+            currentY = startY;
+            lastCtrlX = lastCtrlY = 0;
+            continue;
+        }
+
+        if (cmd == 'M')
         {
             float x, y;
-            ss >> x >> y;
-            path->StartFigure(); 
-            currentX = x; currentY = y;
-            startX = x; startY = y;
+            if (!parseNumber(x) || !parseNumber(y))
+                break;
+            if (rel)
+            {
+                x += currentX;
+                y += currentY;
+            }
+            path->StartFigure();
+            currentX = x;
+            currentY = y;
+            startX = x;
+            startY = y;
+            // subsequent pairs without command are treated as implicit L
+            skipSpaces();
+            while (true)
+            {
+                size_t save = i;
+                float nx, ny;
+                if (!parseNumber(nx) || !parseNumber(ny))
+                {
+                    i = save;
+                    break;
+                }
+                if (rel)
+                {
+                    nx += currentX;
+                    ny += currentY;
+                }
+                path->AddLine(currentX, currentY, nx, ny);
+                currentX = nx;
+                currentY = ny;
+                skipSpaces();
+            }
         }
-        else if (command == 'L') 
+        else if (cmd == 'L')
         {
             float x, y;
-            ss >> x >> y;
-            path->AddLine(currentX, currentY, x, y);
-            currentX = x; currentY = y;
+            while (parseNumber(x) && parseNumber(y))
+            {
+                if (rel)
+                {
+                    x += currentX;
+                    y += currentY;
+                }
+                path->AddLine(currentX, currentY, x, y);
+                currentX = x;
+                currentY = y;
+                skipSpaces();
+            }
         }
-        else if (command == 'H') 
+        else if (cmd == 'H')
         {
             float x;
-            ss >> x;
-            path->AddLine(currentX, currentY, x, currentY); 
-            currentX = x;
+            while (parseNumber(x))
+            {
+                if (rel)
+                    x += currentX;
+                path->AddLine(currentX, currentY, x, currentY);
+                currentX = x;
+                skipSpaces();
+            }
         }
-        else if (command == 'V') 
+        else if (cmd == 'V')
         {
             float y;
-            ss >> y;
-            path->AddLine(currentX, currentY, currentX, y); 
-            currentY = y;
+            while (parseNumber(y))
+            {
+                if (rel)
+                    y += currentY;
+                path->AddLine(currentX, currentY, currentX, y);
+                currentY = y;
+                skipSpaces();
+            }
         }
-        else if (command == 'C') 
+        else if (cmd == 'C')
         {
             float x1, y1, x2, y2, x3, y3;
-            ss >> x1 >> y1 >> x2 >> y2 >> x3 >> y3;
-          
-            path->AddBezier(currentX, currentY, x1, y1, x2, y2, x3, y3);
-            currentX = x3; currentY = y3; 
+            while (parseNumber(x1) && parseNumber(y1) && parseNumber(x2) && parseNumber(y2) && parseNumber(x3) && parseNumber(y3))
+            {
+                if (rel)
+                {
+                    x1 += currentX;
+                    y1 += currentY;
+                    x2 += currentX;
+                    y2 += currentY;
+                    x3 += currentX;
+                    y3 += currentY;
+                }
+                path->AddBezier(currentX, currentY, x1, y1, x2, y2, x3, y3);
+                lastCtrlX = x2;
+                lastCtrlY = y2;
+                currentX = x3;
+                currentY = y3;
+                skipSpaces();
+            }
         }
-    }
+        else if (cmd == 'S')
+        {
+            float x2, y2, x3, y3;
+            while (parseNumber(x2) && parseNumber(y2) && parseNumber(x3) && parseNumber(y3))
+            {
+                float x1 = currentX, y1 = currentY;
+                if (lastCmd == 'C' || lastCmd == 'c' || lastCmd == 'S' || lastCmd == 's')
+                {
+                    // reflect last control
+                    x1 = currentX + (currentX - lastCtrlX);
+                    y1 = currentY + (currentY - lastCtrlY);
+                }
+                if (rel)
+                {
+                    x2 += currentX;
+                    y2 += currentY;
+                    x3 += currentX;
+                    y3 += currentY;
+                }
+                path->AddBezier(currentX, currentY, x1, y1, x2, y2, x3, y3);
+                lastCtrlX = x2;
+                lastCtrlY = y2;
+                currentX = x3;
+                currentY = y3;
+                skipSpaces();
+            }
+        }
+        else if (cmd == 'Q')
+        {
+            float qx, qy, x2, y2;
+            while (parseNumber(qx) && parseNumber(qy) && parseNumber(x2) && parseNumber(y2))
+            {
+                // convert quadratic (current->q->end) to cubic
+                float c1x = currentX + 2.0f / 3.0f * (qx - currentX);
+                float c1y = currentY + 2.0f / 3.0f * (qy - currentY);
+                float c2x = x2 + 2.0f / 3.0f * (qx - x2);
+                float c2y = y2 + 2.0f / 3.0f * (qy - y2);
+                float ex = x2, ey = y2;
+                if (rel)
+                {
+                    qx += currentX;
+                    qy += currentY;
+                    ex += currentX;
+                    ey += currentY; /* recalc c1/c2? handle by computing after rel */
+                    c1x = currentX + 2.0f / 3.0f * (qx - currentX);
+                    c1y = currentY + 2.0f / 3.0f * (qy - currentY);
+                    c2x = ex + 2.0f / 3.0f * (qx - ex);
+                    c2y = ey + 2.0f / 3.0f * (qy - ey);
+                }
+                path->AddBezier(currentX, currentY, c1x, c1y, c2x, c2y, ex, ey);
+                lastCtrlX = qx;
+                lastCtrlY = qy;
+                currentX = ex;
+                currentY = ey;
+                skipSpaces();
+            }
+        }
+        else if (cmd == 'T')
+        {
+            float x2, y2;
+            while (parseNumber(x2) && parseNumber(y2))
+            {
+                float qx = currentX, qy = currentY;
+                if (lastCmd == 'Q' || lastCmd == 'q' || lastCmd == 'T' || lastCmd == 't')
+                {
+                    qx = currentX + (currentX - lastCtrlX);
+                    qy = currentY + (currentY - lastCtrlY);
+                }
+                float ex = x2, ey = y2;
+                if (rel)
+                {
+                    ex += currentX;
+                    ey += currentY;
+                }
+                // convert to cubic
+                float c1x = currentX + 2.0f / 3.0f * (qx - currentX);
+                float c1y = currentY + 2.0f / 3.0f * (qy - currentY);
+                float c2x = ex + 2.0f / 3.0f * (qx - ex);
+                float c2y = ey + 2.0f / 3.0f * (qy - ey);
+                path->AddBezier(currentX, currentY, c1x, c1y, c2x, c2y, ex, ey);
+                lastCtrlX = qx;
+                lastCtrlY = qy;
+                currentX = ex;
+                currentY = ey;
+                skipSpaces();
+            }
+        }
+        else if (cmd == 'A')
+        {
+            // params: rx ry x-axis-rotation large-arc-flag sweep-flag x y
+            float rx, ry, xrot, laf, sf, x, y;
+            while (parseNumber(rx) && parseNumber(ry) && parseNumber(xrot) && parseNumber(laf) && parseNumber(sf) && parseNumber(x) && parseNumber(y))
+            {
+                if (rel)
+                {
+                    x += currentX;
+                    y += currentY;
+                }
+                // Convert arc to bezier segments and add to path
+                arcToBeziers(currentX, currentY, rx, ry, xrot, static_cast<int>(laf), static_cast<int>(sf), x, y);
+                currentX = x;
+                currentY = y;
+                skipSpaces();
+            }
+        }
 
+        lastCmd = ch;
+    }
     return path;
 }
 
-std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& node) const
+std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &node) const
 {
     const std::string tag = node.getTagName();
-    if (node.getAttribute("display") == "none") return nullptr;
+    if (node.getAttribute("display") == "none")
+        return nullptr;
 
     std::unique_ptr<ISvgElement> element = nullptr;
 
     float fillOp = 1.0f;
     std::string fo = node.getAttribute("fill-opacity");
-    if (!fo.empty()) fillOp = std::stof(fo);
+    if (!fo.empty())
+        fillOp = std::stof(fo);
 
     float strokeOp = 1.0f;
     std::string so = node.getAttribute("stroke-opacity");
-    if (!so.empty()) strokeOp = std::stof(so);
+    if (!so.empty())
+        strokeOp = std::stof(so);
 
     if (tag == "line")
     {
@@ -113,12 +479,13 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         line->y2 = std::stof(node.getAttribute("y2"));
 
         std::string stroke = node.getAttribute("stroke");
-        line->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "black" : stroke), strokeOp);
+        // SVG default: stroke is 'none' (shapes won't be stroked unless stroke specified)
+        line->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
 
         const std::string sw = node.getAttribute("stroke-width");
         line->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
         element = std::move(line);
-    } 
+    }
     else if (tag == "rect")
     {
         auto r = std::make_unique<SvgRect>();
@@ -128,10 +495,12 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         r->h = std::stof(node.getAttribute("height"));
 
         const std::string fill = node.getAttribute("fill");
-        r->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "none" : fill), fillOp);
+        // SVG default: fill is black
+        r->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
 
         const std::string stroke = node.getAttribute("stroke");
-        r->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "black" : stroke), strokeOp);
+        // SVG default: stroke is none
+        r->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
 
         const std::string sw = node.getAttribute("stroke-width");
         r->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
@@ -145,10 +514,10 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         c->r = std::stof(node.getAttribute("r"));
 
         const std::string fill = node.getAttribute("fill");
-        c->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "none" : fill), fillOp);
+        c->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
 
         const std::string stroke = node.getAttribute("stroke");
-        c->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "black" : stroke), strokeOp);
+        c->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
 
         const std::string sw = node.getAttribute("stroke-width");
         c->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
@@ -163,10 +532,10 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         e->ry = std::stof(node.getAttribute("ry"));
 
         const std::string fill = node.getAttribute("fill");
-        e->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "none" : fill), fillOp);
+        e->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
 
         const std::string stroke = node.getAttribute("stroke");
-        e->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "black" : stroke), strokeOp);
+        e->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
 
         const std::string sw = node.getAttribute("stroke-width");
         e->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
@@ -178,7 +547,7 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         p->points = ParsePoints(node.getAttribute("points"));
 
         const std::string stroke = node.getAttribute("stroke");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "black" : stroke), strokeOp);
+        p->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
 
         const std::string sw = node.getAttribute("stroke-width");
         p->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
@@ -194,10 +563,11 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         p->points = ParsePoints(node.getAttribute("points"));
 
         const std::string stroke = node.getAttribute("stroke");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "black" : stroke), strokeOp);
+        p->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
 
         const std::string fill = node.getAttribute("fill");
-        p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "none" : fill), fillOp);
+        // polygon default fill is black
+        p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
 
         const std::string sw = node.getAttribute("stroke-width");
         p->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
@@ -206,7 +576,8 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
     else if (tag == "text")
     {
         std::string textContent = node.getTextContent();
-        if (textContent.find("Demo") != std::string::npos) {
+        if (textContent.find("Demo") != std::string::npos)
+        {
             return nullptr;
         }
         auto t = std::make_unique<SvgText>();
@@ -219,15 +590,18 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
         t->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
 
         const std::string ff = node.getAttribute("font-family");
-        if (!ff.empty()) t->fontFamily = std::wstring(ff.begin(), ff.end());
+        if (!ff.empty())
+            t->fontFamily = std::wstring(ff.begin(), ff.end());
 
         const std::string fs = node.getAttribute("font-size");
-        if (!fs.empty()) t->fontSize = std::stof(fs);
+        if (!fs.empty())
+            t->fontSize = std::stof(fs);
 
         t->text = std::wstring(textContent.begin(), textContent.end());
         element = std::move(t);
     }
-    else if (tag == "path") {
+    else if (tag == "path")
+    {
         auto p = std::make_unique<SvgPath>();
 
         std::string d = node.getAttribute("d");
@@ -244,9 +618,12 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode& no
 
         element = std::move(p);
     }
-    if (element) {
+
+    if (element)
+    {
         std::string transform = node.getAttribute("transform");
-        if (!transform.empty()) {
+        if (!transform.empty())
+        {
             element->transformAttribute = transform;
         }
     }
@@ -270,9 +647,18 @@ Color SvgElementFactory::ParseColor(const std::string &value) const
 
     if (value.rfind("rgb", 0) == 0)
     {
-        int r, g, b;
-        sscanf_s(value.c_str(), "rgb(%d,%d,%d)", &r, &g, &b);
-        return Color(255, r, g, b);
+        size_t l = value.find('(');
+        size_t rpar = value.find(')');
+        if (l != std::string::npos && rpar != std::string::npos && rpar > l)
+        {
+            std::string inside = value.substr(l + 1, rpar - l - 1);
+            std::replace(inside.begin(), inside.end(), ',', ' ');
+            std::stringstream ss(inside);
+            int rr = 0, gg = 0, bb = 0;
+            ss >> rr >> gg >> bb;
+            return Color(255, rr, gg, bb);
+        }
+        return Color(255, 0, 0, 0);
     }
 
     if (value == "red")

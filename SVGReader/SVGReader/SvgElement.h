@@ -125,10 +125,11 @@ public:
         children.push_back(std::move(child));
     }
 
-    void Draw(IRenderer& renderer) const override;
+    void Draw(IRenderer &renderer) const override;
 };
 
-class SvgPath : public ISvgElement {
+class SvgPath : public ISvgElement
+{
 public:
     std::unique_ptr<Gdiplus::GraphicsPath> pathData;
 
@@ -136,7 +137,43 @@ public:
     Gdiplus::Color strokeColor;
     float strokeWidth;
 
-    void Draw(IRenderer& renderer) const override;
+    SvgPath() = default;
+
+    // Custom copy constructor to allow copying SvgPath (deep copy of pathData)
+    SvgPath(const SvgPath &other)
+        : fillColor(other.fillColor),
+          strokeColor(other.strokeColor),
+          strokeWidth(other.strokeWidth)
+    {
+        if (other.pathData)
+        {
+            // GraphicsPath copy ctor is protected; create a new path and copy contents
+            pathData = std::make_unique<Gdiplus::GraphicsPath>();
+            pathData->AddPath(other.pathData.get(), FALSE);
+        }
+        transformAttribute = other.transformAttribute;
+    }
+
+    SvgPath &operator=(const SvgPath &other)
+    {
+        if (this != &other)
+        {
+            fillColor = other.fillColor;
+            strokeColor = other.strokeColor;
+            strokeWidth = other.strokeWidth;
+            transformAttribute = other.transformAttribute;
+            if (other.pathData)
+            {
+                pathData = std::make_unique<Gdiplus::GraphicsPath>();
+                pathData->AddPath(other.pathData.get(), FALSE);
+            }
+            else
+            {
+                pathData.reset();
+            }
+        }
+        return *this;
+    }
+
+    void Draw(IRenderer &renderer) const override;
 };
-
-

@@ -14,25 +14,25 @@
 #define ID_PROJECT 9004
 
 // Button IDs
-#define ID_BTN_ZOOM_IN   101
-#define ID_BTN_ZOOM_OUT  102
-#define ID_BTN_ROTATE    103
-#define ID_BTN_RESET     104
-#define ID_BTN_LEFT      105
-#define ID_BTN_RIGHT     106
-#define ID_BTN_UP        107
-#define ID_BTN_DOWN      108
+#define ID_BTN_ZOOM_IN 101
+#define ID_BTN_ZOOM_OUT 102
+#define ID_BTN_ROTATE 103
+#define ID_BTN_RESET 104
+#define ID_BTN_LEFT 105
+#define ID_BTN_RIGHT 106
+#define ID_BTN_UP 107
+#define ID_BTN_DOWN 108
 
 // Button's size
-#define BTN_WIDTH       32
-#define BTN_HEIGHT      32
-#define BTN_ARROW_SIZE  32
-#define BTN_GAP         10
-#define BTN_Y_MARGIN    40
+#define BTN_WIDTH 32
+#define BTN_HEIGHT 32
+#define BTN_ARROW_SIZE 32
+#define BTN_GAP 10
+#define BTN_Y_MARGIN 40
 
 // Global SVGRenderer Instance
-SvgRenderer* globalRenderer = nullptr;
-Image* startupImage = nullptr;
+SvgRenderer *globalRenderer = nullptr;
+Image *startupImage = nullptr;
 // Default
 float g_Scale = 1.0f;
 float g_Angle = 0.0f;
@@ -41,7 +41,7 @@ float g_OffsetY = 0.0f;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
-bool OpenSVGFileDialog(wchar_t* outPath);
+bool OpenSVGFileDialog(wchar_t *outPath);
 void SetButtonsVisible(HWND hWnd, bool visible);
 
 VOID OnPaint(HDC hdc)
@@ -64,8 +64,8 @@ VOID OnPaint(HDC hdc)
         if (startupImage && startupImage->GetLastStatus() == Ok)
         {
             graphics.DrawImage(startupImage, 20, 20,
-                startupImage->GetWidth(),
-                startupImage->GetHeight());
+                               startupImage->GetWidth(),
+                               startupImage->GetHeight());
         }
     }
     else
@@ -73,7 +73,7 @@ VOID OnPaint(HDC hdc)
         GdiPlusRenderer renderer(graphics);
         // Scale 90%
         graphics.ScaleTransform(0.9f, 0.9f);
-        // Move center 
+        // Move center
         RECT rect;
         GetClientRect(WindowFromDC(hdc), &rect);
         float g_CenterX = (float)(rect.right - rect.left) / 2.0f;
@@ -95,9 +95,9 @@ VOID OnPaint(HDC hdc)
 }
 
 // Open file dialog (accepts .svg only)
-bool OpenSVGFileDialog(wchar_t* outPath)
+bool OpenSVGFileDialog(wchar_t *outPath)
 {
-    OPENFILENAME ofn = { 0 };
+    OPENFILENAME ofn = {0};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
     ofn.lpstrFile = outPath;
@@ -199,12 +199,13 @@ void SetButtonsVisible(HWND hWnd, bool visible)
     int showCmd = visible ? SW_SHOW : SW_HIDE;
     int btnIDs[] = {
         ID_BTN_ZOOM_IN, ID_BTN_ZOOM_OUT, ID_BTN_ROTATE, ID_BTN_RESET,
-        ID_BTN_LEFT, ID_BTN_RIGHT, ID_BTN_UP, ID_BTN_DOWN
-    };
+        ID_BTN_LEFT, ID_BTN_RIGHT, ID_BTN_UP, ID_BTN_DOWN};
 
-    for (int id : btnIDs) {
+    for (int id : btnIDs)
+    {
         HWND hBtn = GetDlgItem(hWnd, id);
-        if (hBtn) ShowWindow(hBtn, showCmd);
+        if (hBtn)
+            ShowWindow(hBtn, showCmd);
     }
 }
 
@@ -248,7 +249,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (dis->itemState & ODS_SELECTED)
             OffsetRect(&rc, 1, 1);
 
-        const wchar_t* text = L"";
+        const wchar_t *text = L"";
         HICON hIcon = NULL;
 
         switch (dis->CtlID)
@@ -256,57 +257,57 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case ID_BTN_ZOOM_IN:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_ZOOM_IN),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_ZOOM_IN),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
 
         case ID_BTN_ZOOM_OUT:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_ZOOM_OUT),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_ZOOM_OUT),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
 
         case ID_BTN_ROTATE:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_ROTATE),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_ROTATE),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
 
         case ID_BTN_UP:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_ARROW_UP),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_ARROW_UP),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
 
         case ID_BTN_DOWN:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_ARROW_DOWN),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_ARROW_DOWN),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
 
         case ID_BTN_LEFT:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_ARROW_LEFT),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_ARROW_LEFT),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
 
         case ID_BTN_RIGHT:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_ARROW_RIGHT),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_ARROW_RIGHT),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
 
         case ID_BTN_RESET:
             text = L"";
             hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
-                MAKEINTRESOURCE(IDI_RESET),
-                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+                                     MAKEINTRESOURCE(IDI_RESET),
+                                     IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
             break;
         }
 
@@ -325,7 +326,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
 
             DrawIconEx(hdc, iconX, iconY, hIcon,
-                iconSize, iconSize, 0, NULL, DI_NORMAL);
+                       iconSize, iconSize, 0, NULL, DI_NORMAL);
 
             DestroyIcon(hIcon);
         }
@@ -335,7 +336,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         SetBkMode(hdc, TRANSPARENT);
         DrawText(hdc, text, -1, &textRc,
-            DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+                 DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
         if (hIcon)
             DestroyIcon(hIcon);
@@ -349,46 +350,46 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         // Zoom / Rotate buttons
         CreateWindow(TEXT("BUTTON"), TEXT("Zoom +"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_WIDTH, BTN_HEIGHT,
-            hWnd, (HMENU)ID_BTN_ZOOM_IN, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_WIDTH, BTN_HEIGHT,
+                     hWnd, (HMENU)ID_BTN_ZOOM_IN, NULL, NULL);
 
         CreateWindow(TEXT("BUTTON"), TEXT("Zoom -"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_WIDTH, BTN_HEIGHT,
-            hWnd, (HMENU)ID_BTN_ZOOM_OUT, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_WIDTH, BTN_HEIGHT,
+                     hWnd, (HMENU)ID_BTN_ZOOM_OUT, NULL, NULL);
 
         CreateWindow(TEXT("BUTTON"), TEXT("Rotate"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_WIDTH, BTN_HEIGHT,
-            hWnd, (HMENU)ID_BTN_ROTATE, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_WIDTH, BTN_HEIGHT,
+                     hWnd, (HMENU)ID_BTN_ROTATE, NULL, NULL);
 
         // Arrow buttons
         CreateWindow(TEXT("BUTTON"), TEXT("Left"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
-            hWnd, (HMENU)ID_BTN_LEFT, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+                     hWnd, (HMENU)ID_BTN_LEFT, NULL, NULL);
 
         CreateWindow(TEXT("BUTTON"), TEXT("Up"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
-            hWnd, (HMENU)ID_BTN_UP, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+                     hWnd, (HMENU)ID_BTN_UP, NULL, NULL);
 
         CreateWindow(TEXT("BUTTON"), TEXT("Down"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
-            hWnd, (HMENU)ID_BTN_DOWN, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+                     hWnd, (HMENU)ID_BTN_DOWN, NULL, NULL);
 
         CreateWindow(TEXT("BUTTON"), TEXT("Right"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
-            hWnd, (HMENU)ID_BTN_RIGHT, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+                     hWnd, (HMENU)ID_BTN_RIGHT, NULL, NULL);
 
         // Reset button
         CreateWindow(TEXT("BUTTON"), TEXT("Reset"),
-            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-            0, 0, BTN_WIDTH, BTN_HEIGHT,
-            hWnd, (HMENU)ID_BTN_RESET, NULL, NULL);
+                     WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+                     0, 0, BTN_WIDTH, BTN_HEIGHT,
+                     hWnd, (HMENU)ID_BTN_RESET, NULL, NULL);
 
         // Hide buttons until SVG is loaded
         SetButtonsVisible(hWnd, false);
@@ -398,7 +399,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_SIZE:
     {
-        if (!GetDlgItem(hWnd, ID_BTN_ZOOM_IN)) return 0;
+        if (!GetDlgItem(hWnd, ID_BTN_ZOOM_IN))
+            return 0;
 
         RECT rc;
         GetClientRect(hWnd, &rc);
@@ -407,7 +409,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         int clientH = rc.bottom - rc.top;
 
         int y = clientH - BTN_HEIGHT - BTN_Y_MARGIN;
-        if (y < 0) y = 0;
+        if (y < 0)
+            y = 0;
 
         int x = 10;
 
@@ -435,10 +438,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
         case ID_FILE_OPEN:
         {
-            wchar_t filePath[MAX_PATH] = { 0 };
+            wchar_t filePath[MAX_PATH] = {0};
             if (OpenSVGFileDialog(filePath))
             {
-                wchar_t* ext = wcsrchr(filePath, L'.');
+                wchar_t *ext = wcsrchr(filePath, L'.');
                 if (ext && _wcsicmp(ext, L".svg") != 0)
                 {
                     MessageBox(hWnd, L"Chọn file .svg", L"Invalid File", MB_OK);
@@ -453,13 +456,47 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
 
                 globalRenderer = new SvgRenderer();
-           
+
                 if (globalRenderer->Load(filePath))
                 {
                     MessageBox(hWnd, L"File đã được mở.", L"Thành công!", MB_OK);
 
                     SetButtonsVisible(hWnd, true);
-                    SendMessage(hWnd, WM_SIZE, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+                    // Resize window to better fit the SVG content if document provides dimensions
+                    const SvgDocument &doc = globalRenderer->GetDocument();
+                    float svgW = doc.GetWidth();
+                    float svgH = doc.GetHeight();
+                    if (svgW > 0 && svgH > 0)
+                    {
+                        // desired client area (add margins for UI controls)
+                        int marginW = 120;
+                        int marginH = 140;
+                        int desiredClientW = static_cast<int>(std::ceil(svgW)) + marginW;
+                        int desiredClientH = static_cast<int>(std::ceil(svgH)) + marginH;
+
+                        int screenW = GetSystemMetrics(SM_CXSCREEN);
+                        int screenH = GetSystemMetrics(SM_CYSCREEN);
+                        int maxW = screenW * 9 / 10;
+                        int maxH = screenH * 9 / 10;
+                        if (desiredClientW > maxW)
+                            desiredClientW = maxW;
+                        if (desiredClientH > maxH)
+                            desiredClientH = maxH;
+
+                        RECT wr = {0, 0, desiredClientW, desiredClientH};
+                        DWORD style = (DWORD)GetWindowLongPtr(hWnd, GWL_STYLE);
+                        // window has menu bar
+                        AdjustWindowRect(&wr, style, TRUE);
+                        int winW = wr.right - wr.left;
+                        int winH = wr.bottom - wr.top;
+                        int winX = (screenW - winW) / 2;
+                        int winY = (screenH - winH) / 2;
+                        SetWindowPos(hWnd, NULL, winX, winY, winW, winH, SWP_NOZORDER | SWP_SHOWWINDOW);
+                    }
+                    else
+                    {
+                        SendMessage(hWnd, WM_SIZE, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
+                    }
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
                 else
@@ -534,7 +571,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_DESTROY:
-        if (startupImage) delete startupImage;
+        if (startupImage)
+            delete startupImage;
         if (globalRenderer)
         {
             delete globalRenderer;
