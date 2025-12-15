@@ -108,7 +108,28 @@
     <Image Include="SVGReaderCustomSmall.ico">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="icon1.ico">
+    <Image Include="zoom-in.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="zoom-out.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="rotate.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="arrow-down.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="arrow-left.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="arrow-right.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="arrow-up.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="reset.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

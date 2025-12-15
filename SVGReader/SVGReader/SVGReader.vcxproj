@@ -158,10 +158,17 @@
     <ResourceCompile Include="SVGReader.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="icon1.ico" />
+    <Image Include="arrow-down.ico" />
+    <Image Include="arrow-left.ico" />
+    <Image Include="arrow-right.ico" />
+    <Image Include="arrow-up.ico" />
+    <Image Include="reset.ico" />
+    <Image Include="rotate.ico" />
     <Image Include="small.ico" />
     <Image Include="SVGReader.ico" />
     <Image Include="SVGReaderCustomSmall.ico" />
+    <Image Include="zoom-in.ico" />
+    <Image Include="zoom-out.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -13,6 +13,7 @@
 #define ID_GROUP 9003
 #define ID_PROJECT 9004
 
+// Button IDs
 #define ID_BTN_ZOOM_IN   101
 #define ID_BTN_ZOOM_OUT  102
 #define ID_BTN_ROTATE    103
@@ -22,6 +23,13 @@
 #define ID_BTN_UP        107
 #define ID_BTN_DOWN      108
 
+// Button's size
+#define BTN_WIDTH       32
+#define BTN_HEIGHT      32
+#define BTN_ARROW_SIZE  32
+#define BTN_GAP         10
+#define BTN_Y_MARGIN    40
+
 // Global SVGRenderer Instance
 SvgRenderer* globalRenderer = nullptr;
 Image* startupImage = nullptr;
@@ -30,9 +38,6 @@ float g_Scale = 1.0f;
 float g_Angle = 0.0f;
 float g_OffsetX = 0.0f;
 float g_OffsetY = 0.0f;
-
-// Check if is first run
-bool isFirstRun = true;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
@@ -44,13 +49,13 @@ VOID OnPaint(HDC hdc)
     Graphics graphics(hdc);
     graphics.Clear(Color(255, 255, 255, 255));
 
-    if (isFirstRun)
+    if (!globalRenderer)
     {
         FontFamily fontFamily(L"Arial");
         Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
         SolidBrush brush(Color(255, 0, 0, 0));
         graphics.DrawString(
-            L"Chào mừng đến với SVG Reader (v1.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
+            L"Chào mừng đến với SVG Reader (v2.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
             -1,
             &font,
             PointF(20, 350),
@@ -63,9 +68,7 @@ VOID OnPaint(HDC hdc)
                 startupImage->GetHeight());
         }
     }
-
-    // Actually draw the SVG via new OOP renderer
-    if (globalRenderer)
+    else
     {
         GdiPlusRenderer renderer(graphics);
         // Scale 90%
@@ -150,13 +153,24 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
     AppendMenu(hAboutMenu, MF_STRING, ID_PROJECT, TEXT("Đồ Án"));
     AppendMenu(hMenubar, MF_POPUP, (UINT_PTR)hAboutMenu, TEXT("About"));
 
+    // Window's Resolution
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    int windowWidth = screenWidth * 2 / 3;
+    int windowHeight = screenHeight * 2 / 3;
+
+    // Centered
+    int windowX = (screenWidth - windowWidth) / 2;
+    int windowY = (screenHeight - windowHeight) / 2;
+
     // Create Window
     hWnd = CreateWindow(
         TEXT("SVGReaderWindow"),
         TEXT("SVG Reader"),
         WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,
-        960, 540, // 1920x1080 x 1/2
+        windowX, windowY,
+        windowWidth, windowHeight,
         NULL,
         hMenubar,
         hInstance,
@@ -202,19 +216,219 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     switch (message)
     {
+    case WM_DRAWITEM:
+    {
+        LPDRAWITEMSTRUCT dis = (LPDRAWITEMSTRUCT)lParam;
+        if (dis->CtlType != ODT_BUTTON)
+            break;
+
+        HDC hdc = dis->hDC;
+        RECT rc = dis->rcItem;
+
+        COLORREF bgColor = RGB(200, 200, 200);
+        if (dis->itemState & ODS_SELECTED)
+            bgColor = RGB(150, 150, 150);
+
+        const int RADIUS = 6;
+
+        HBRUSH bgBrush = CreateSolidBrush(bgColor);
+        HPEN borderPen = CreatePen(PS_SOLID, 1, RGB(120, 120, 120));
+
+        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, bgBrush);
+        HPEN oldPen = (HPEN)SelectObject(hdc, borderPen);
+
+        RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, RADIUS, RADIUS);
+
+        SelectObject(hdc, oldBrush);
+        SelectObject(hdc, oldPen);
+
+        DeleteObject(bgBrush);
+        DeleteObject(borderPen);
+
+        if (dis->itemState & ODS_SELECTED)
+            OffsetRect(&rc, 1, 1);
+
+        const wchar_t* text = L"";
+        HICON hIcon = NULL;
+
+        switch (dis->CtlID)
+        {
+        case ID_BTN_ZOOM_IN:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_ZOOM_IN),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+
+        case ID_BTN_ZOOM_OUT:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_ZOOM_OUT),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+
+        case ID_BTN_ROTATE:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_ROTATE),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+
+        case ID_BTN_UP:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_ARROW_UP),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+
+        case ID_BTN_DOWN:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_ARROW_DOWN),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+
+        case ID_BTN_LEFT:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_ARROW_LEFT),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+
+        case ID_BTN_RIGHT:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_ARROW_RIGHT),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+
+        case ID_BTN_RESET:
+            text = L"";
+            hIcon = (HICON)LoadImage(GetModuleHandle(NULL),
+                MAKEINTRESOURCE(IDI_RESET),
+                IMAGE_ICON, BTN_HEIGHT, BTN_HEIGHT, LR_DEFAULTCOLOR);
+            break;
+        }
+
+        int padding = 0;
+        int iconSize = BTN_HEIGHT - padding;
+
+        if (hIcon)
+        {
+            int iconX = rc.left + (rc.right - rc.left - iconSize) / 2;
+            int iconY = rc.top + (rc.bottom - rc.top - iconSize) / 2;
+
+            if (dis->itemState & ODS_SELECTED)
+            {
+                iconX += 1;
+                iconY += 1;
+            }
+
+            DrawIconEx(hdc, iconX, iconY, hIcon,
+                iconSize, iconSize, 0, NULL, DI_NORMAL);
+
+            DestroyIcon(hIcon);
+        }
+
+        RECT textRc = rc;
+        textRc.left += iconSize + padding * 2;
+
+        SetBkMode(hdc, TRANSPARENT);
+        DrawText(hdc, text, -1, &textRc,
+            DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+
+        if (hIcon)
+            DestroyIcon(hIcon);
+
+        return TRUE;
+    }
+
     case WM_CREATE:
+    {
         startupImage = new Image(L"fit.png");
 
-        CreateWindow(TEXT("BUTTON"), TEXT("Zoom +"), WS_CHILD, 100, 400, 80, 30, hWnd, (HMENU)ID_BTN_ZOOM_IN, NULL, NULL);
-        CreateWindow(TEXT("BUTTON"), TEXT("Zoom -"), WS_CHILD, 200, 400, 80, 30, hWnd, (HMENU)ID_BTN_ZOOM_OUT, NULL, NULL);
-        CreateWindow(TEXT("BUTTON"), TEXT("Rotate"), WS_CHILD, 300, 400, 80, 30, hWnd, (HMENU)ID_BTN_ROTATE, NULL, NULL);
+        // Zoom / Rotate buttons
+        CreateWindow(TEXT("BUTTON"), TEXT("Zoom +"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_WIDTH, BTN_HEIGHT,
+            hWnd, (HMENU)ID_BTN_ZOOM_IN, NULL, NULL);
 
-        CreateWindow(TEXT("BUTTON"), TEXT("<"), WS_CHILD, 400, 400, 30, 30, hWnd, (HMENU)ID_BTN_LEFT, NULL, NULL);
-        CreateWindow(TEXT("BUTTON"), TEXT("^"), WS_CHILD, 450, 375, 30, 30, hWnd, (HMENU)ID_BTN_UP, NULL, NULL);
-        CreateWindow(TEXT("BUTTON"), TEXT("v"), WS_CHILD, 450, 425, 30, 30, hWnd, (HMENU)ID_BTN_DOWN, NULL, NULL);
-        CreateWindow(TEXT("BUTTON"), TEXT(">"), WS_CHILD, 500, 400, 30, 30, hWnd, (HMENU)ID_BTN_RIGHT, NULL, NULL);
-        CreateWindow(TEXT("BUTTON"), TEXT("Reset"), WS_CHILD, 550, 400, 80, 30, hWnd, (HMENU)ID_BTN_RESET, NULL, NULL);
-        break;
+        CreateWindow(TEXT("BUTTON"), TEXT("Zoom -"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_WIDTH, BTN_HEIGHT,
+            hWnd, (HMENU)ID_BTN_ZOOM_OUT, NULL, NULL);
+
+        CreateWindow(TEXT("BUTTON"), TEXT("Rotate"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_WIDTH, BTN_HEIGHT,
+            hWnd, (HMENU)ID_BTN_ROTATE, NULL, NULL);
+
+        // Arrow buttons
+        CreateWindow(TEXT("BUTTON"), TEXT("Left"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+            hWnd, (HMENU)ID_BTN_LEFT, NULL, NULL);
+
+        CreateWindow(TEXT("BUTTON"), TEXT("Up"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+            hWnd, (HMENU)ID_BTN_UP, NULL, NULL);
+
+        CreateWindow(TEXT("BUTTON"), TEXT("Down"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+            hWnd, (HMENU)ID_BTN_DOWN, NULL, NULL);
+
+        CreateWindow(TEXT("BUTTON"), TEXT("Right"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_ARROW_SIZE, BTN_ARROW_SIZE,
+            hWnd, (HMENU)ID_BTN_RIGHT, NULL, NULL);
+
+        // Reset button
+        CreateWindow(TEXT("BUTTON"), TEXT("Reset"),
+            WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
+            0, 0, BTN_WIDTH, BTN_HEIGHT,
+            hWnd, (HMENU)ID_BTN_RESET, NULL, NULL);
+
+        // Hide buttons until SVG is loaded
+        SetButtonsVisible(hWnd, false);
+
+        return 0;
+    }
+
+    case WM_SIZE:
+    {
+        if (!GetDlgItem(hWnd, ID_BTN_ZOOM_IN)) return 0;
+
+        RECT rc;
+        GetClientRect(hWnd, &rc);
+
+        int clientW = rc.right - rc.left;
+        int clientH = rc.bottom - rc.top;
+
+        int y = clientH - BTN_HEIGHT - BTN_Y_MARGIN;
+        if (y < 0) y = 0;
+
+        int x = 10;
+
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_ZOOM_IN), x, y, BTN_WIDTH, BTN_HEIGHT, TRUE);
+        x += BTN_WIDTH + BTN_GAP;
+
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_ZOOM_OUT), x, y, BTN_WIDTH, BTN_HEIGHT, TRUE);
+        x += BTN_WIDTH + BTN_GAP;
+
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_LEFT), x, y, BTN_ARROW_SIZE, BTN_ARROW_SIZE, TRUE);
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_RIGHT), x + BTN_ARROW_SIZE * 2, y, BTN_ARROW_SIZE, BTN_ARROW_SIZE, TRUE);
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_UP), x + BTN_ARROW_SIZE, y - BTN_ARROW_SIZE, BTN_ARROW_SIZE, BTN_ARROW_SIZE, TRUE);
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_DOWN), x + BTN_ARROW_SIZE, y + BTN_ARROW_SIZE, BTN_ARROW_SIZE, BTN_ARROW_SIZE, TRUE);
+
+        x += BTN_ARROW_SIZE * 3 + BTN_GAP;
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_ROTATE), x, y, BTN_WIDTH, BTN_HEIGHT, TRUE);
+        x += BTN_WIDTH + BTN_GAP;
+        MoveWindow(GetDlgItem(hWnd, ID_BTN_RESET), x, y, BTN_WIDTH, BTN_HEIGHT, TRUE);
+
+        return 0;
+    }
 
     case WM_COMMAND:
         switch (LOWORD(wParam))
@@ -231,15 +445,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     return 0;
                 }
 
-                if (!globalRenderer)
-                    globalRenderer = new SvgRenderer();
+                // New drawer for new svg
+                if (globalRenderer)
+                {
+                    delete globalRenderer;
+                    globalRenderer = nullptr;
+                }
 
+                globalRenderer = new SvgRenderer();
+           
                 if (globalRenderer->Load(filePath))
                 {
                     MessageBox(hWnd, L"File đã được mở.", L"Thành công!", MB_OK);
 
-                    isFirstRun = false;
                     SetButtonsVisible(hWnd, true);
+                    SendMessage(hWnd, WM_SIZE, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN));
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
                 else
@@ -259,7 +479,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             return 0;
 
         case ID_PROJECT:
-            MessageBox(hWnd, L"GVHD: Thầy Đỗ Nguyễn Kha \nSVGReader phiên bản: 1.0", L"Thông tin Đồ án", MB_OK);
+            MessageBox(hWnd, L"Gíao viên hướng dẫn: \n- Thầy Đỗ Nguyễn Kha \n- Thầy Mai Anh Tuấn \n- Thầy Phạm Nguyễn Sơn Tùng \n \nSVGReader phiên bản: 2.0", L"Thông tin Đồ án", MB_OK);
             return 0;
 
         case ID_BTN_ZOOM_IN:
@@ -314,8 +534,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_DESTROY:
-        if (startupImage)
-            delete startupImage;
+        if (startupImage) delete startupImage;
         if (globalRenderer)
         {
             delete globalRenderer;
