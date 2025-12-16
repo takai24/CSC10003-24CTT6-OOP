@@ -1,4 +1,6 @@
-﻿#include "stdafx.h"
+﻿#define _CRT_SECURE_NO_WARNINGS
+
+#include "stdafx.h"
 #include "SvgElementFactory.h"
 #include <vector>
 #include <sstream>
@@ -452,185 +454,237 @@ std::unique_ptr<Gdiplus::GraphicsPath> ParsePathData(const std::string &d)
     return path;
 }
 
+// Local helpers so missing attributes get reasonable defaults instead of empty strings / exceptions.
+namespace
+{
+    inline std::string AttrOr(const IXMLNode &node, const char *name, const std::string &def = "")
+    {
+        std::string v = node.getAttribute(name);
+        return v.empty() ? def : v;
+    }
+
+    inline float AttrOrFloat(const IXMLNode &node, const char *name, float def = 0.0f)
+    {
+        std::string v = node.getAttribute(name);
+        if (v.empty())
+            return def;
+        try
+        {
+            return std::stof(v);
+        }
+        catch (...)
+        {
+            return def;
+        }
+    }
+}
+
 std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &node) const
 {
     const std::string tag = node.getTagName();
-    if (node.getAttribute("display") == "none")
+    if (AttrOr(node, "display", "") == "none")
         return nullptr;
 
     std::unique_ptr<ISvgElement> element = nullptr;
 
-    float fillOp = 1.0f;
-    std::string fo = node.getAttribute("fill-opacity");
-    if (!fo.empty())
-        fillOp = std::stof(fo);
-
-    float strokeOp = 1.0f;
-    std::string so = node.getAttribute("stroke-opacity");
-    if (!so.empty())
-        strokeOp = std::stof(so);
+    float fillOp = AttrOrFloat(node, "fill-opacity", 1.0f);
+    float strokeOp = AttrOrFloat(node, "stroke-opacity", 1.0f);
 
     if (tag == "line")
     {
         auto line = std::make_unique<SvgLine>();
-        line->x1 = std::stof(node.getAttribute("x1"));
-        line->y1 = std::stof(node.getAttribute("y1"));
-        line->x2 = std::stof(node.getAttribute("x2"));
-        line->y2 = std::stof(node.getAttribute("y2"));
+        line->x1 = AttrOrFloat(node, "x1", 0.0f);
+        line->y1 = AttrOrFloat(node, "y1", 0.0f);
+        line->x2 = AttrOrFloat(node, "x2", 0.0f);
+        line->y2 = AttrOrFloat(node, "y2", 0.0f);
 
-        std::string stroke = node.getAttribute("stroke");
+        std::string stroke = AttrOr(node, "stroke", "none");
         // SVG default: stroke is 'none' (shapes won't be stroked unless stroke specified)
-        line->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
+        line->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
-        const std::string sw = node.getAttribute("stroke-width");
-        line->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
+        line->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(line);
     }
     else if (tag == "rect")
     {
         auto r = std::make_unique<SvgRect>();
-        r->x = std::stof(node.getAttribute("x"));
-        r->y = std::stof(node.getAttribute("y"));
-        r->w = std::stof(node.getAttribute("width"));
-        r->h = std::stof(node.getAttribute("height"));
+        r->x = AttrOrFloat(node, "x", 0.0f);
+        r->y = AttrOrFloat(node, "y", 0.0f);
+        r->w = AttrOrFloat(node, "width", 0.0f);
+        r->h = AttrOrFloat(node, "height", 0.0f);
 
-        const std::string fill = node.getAttribute("fill");
+        const std::string fill = AttrOr(node, "fill", "black");
         // SVG default: fill is black
-        r->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        r->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
-        const std::string stroke = node.getAttribute("stroke");
+        const std::string stroke = AttrOr(node, "stroke", "none");
         // SVG default: stroke is none
-        r->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
+        r->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
-        const std::string sw = node.getAttribute("stroke-width");
-        r->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
+        r->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(r);
     }
     else if (tag == "circle")
     {
         auto c = std::make_unique<SvgCircle>();
-        c->cx = std::stof(node.getAttribute("cx"));
-        c->cy = std::stof(node.getAttribute("cy"));
-        c->r = std::stof(node.getAttribute("r"));
+        c->cx = AttrOrFloat(node, "cx", 0.0f);
+        c->cy = AttrOrFloat(node, "cy", 0.0f);
+        c->r = AttrOrFloat(node, "r", 0.0f);
 
-        const std::string fill = node.getAttribute("fill");
-        c->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        const std::string fill = AttrOr(node, "fill", "black");
+        c->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
-        const std::string stroke = node.getAttribute("stroke");
-        c->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
+        const std::string stroke = AttrOr(node, "stroke", "none");
+        c->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
-        const std::string sw = node.getAttribute("stroke-width");
-        c->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
+        c->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(c);
     }
     else if (tag == "ellipse")
     {
         auto e = std::make_unique<SvgEllipse>();
-        e->cx = std::stof(node.getAttribute("cx"));
-        e->cy = std::stof(node.getAttribute("cy"));
-        e->rx = std::stof(node.getAttribute("rx"));
-        e->ry = std::stof(node.getAttribute("ry"));
+        e->cx = AttrOrFloat(node, "cx", 0.0f);
+        e->cy = AttrOrFloat(node, "cy", 0.0f);
+        e->rx = AttrOrFloat(node, "rx", 0.0f);
+        e->ry = AttrOrFloat(node, "ry", 0.0f);
 
-        const std::string fill = node.getAttribute("fill");
-        e->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        const std::string fill = AttrOr(node, "fill", "black");
+        e->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
-        const std::string stroke = node.getAttribute("stroke");
-        e->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
+        const std::string stroke = AttrOr(node, "stroke", "none");
+        e->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
-        const std::string sw = node.getAttribute("stroke-width");
-        e->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
+        e->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(e);
     }
     else if (tag == "polyline")
     {
         auto p = std::make_unique<SvgPolyline>();
-        p->points = ParsePoints(node.getAttribute("points"));
+        p->points = ParsePoints(AttrOr(node, "points", ""));
 
-        const std::string stroke = node.getAttribute("stroke");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
+        const std::string stroke = AttrOr(node, "stroke", "none");
+        p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
-        const std::string sw = node.getAttribute("stroke-width");
-        p->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
+        p->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
 
-        std::string fill = node.getAttribute("fill");
-        p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "none" : fill), fillOp);
+        std::string fill = AttrOr(node, "fill", "none");
+        p->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
         element = std::move(p);
     }
     else if (tag == "polygon")
     {
         auto p = std::make_unique<SvgPolygon>();
-        p->points = ParsePoints(node.getAttribute("points"));
+        p->points = ParsePoints(AttrOr(node, "points", ""));
 
-        const std::string stroke = node.getAttribute("stroke");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
+        const std::string stroke = AttrOr(node, "stroke", "none");
+        p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
-        const std::string fill = node.getAttribute("fill");
+        const std::string fill = AttrOr(node, "fill", "black");
         // polygon default fill is black
-        p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        p->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
-        const std::string sw = node.getAttribute("stroke-width");
-        p->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
+        p->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(p);
     }
     else if (tag == "text")
     {
         std::string textContent = node.getTextContent();
-        if (textContent.find("Demo") != std::string::npos)
-        {
-            return nullptr;
-        }
+        // trim
+        size_t l = textContent.find_first_not_of(" \n\r\t");
+        if (l == std::string::npos) textContent.clear();
+        else textContent.erase(0, l);
+        size_t r = textContent.find_last_not_of(" \n\r\t");
+        if (r != std::string::npos) textContent.erase(r + 1);
+
         auto t = std::make_unique<SvgText>();
-        const std::string sx = node.getAttribute("x");
-        const std::string sy = node.getAttribute("y");
-        t->x = sx.empty() ? 0.0f : std::stof(sx);
-        t->y = sy.empty() ? 0.0f : std::stof(sy);
+        t->text = wstring(textContent.begin(), textContent.end());
 
-        const std::string fill = node.getAttribute("fill");
-        t->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        // Use safe helpers to read numeric attributes with defaults
+        t->x = AttrOrFloat(node, "x", 0.0f);
+        t->y = AttrOrFloat(node, "y", 0.0f);
 
-        const std::string ff = node.getAttribute("font-family");
+        const std::string fill = AttrOr(node, "fill", "black");
+        t->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
+
+        std::string ff = AttrOr(node, "font-family", "");
         if (!ff.empty())
-            t->fontFamily = std::wstring(ff.begin(), ff.end());
+        {
+            size_t comma = ff.find(',');
+            std::string firstFont = (comma == std::string::npos) ? ff : ff.substr(0, comma);
+            t->fontFamily = std::wstring(firstFont.begin(), firstFont.end());
+        }
+        else
+        {
+            t->fontFamily = L"Arial";
+        }
 
-        const std::string fs = node.getAttribute("font-size");
-        if (!fs.empty())
-            t->fontSize = std::stof(fs);
+        // Ensure fontSize has a sensible default (avoid uninitialized value)
+        t->fontSize = AttrOrFloat(node, "font-size", 12.0f);
 
-        t->text = std::wstring(textContent.begin(), textContent.end());
         element = std::move(t);
     }
     else if (tag == "path")
     {
         auto p = std::make_unique<SvgPath>();
 
-        std::string d = node.getAttribute("d");
+        std::string d = AttrOr(node, "d", "");
         p->pathData = ParsePathData(d);
+        std::string fr = AttrOr(node, "fill-rule", "");
+        if (fr == "evenodd")
+            p->pathData->SetFillMode(Gdiplus::FillModeAlternate);
+        else
+            p->pathData->SetFillMode(Gdiplus::FillModeWinding);
 
-        std::string stroke = node.getAttribute("stroke");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke.empty() ? "none" : stroke), strokeOp);
+        std::string stroke = AttrOr(node, "stroke", "none");
+        p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
-        std::string fill = node.getAttribute("fill");
-        p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        std::string fill = AttrOr(node, "fill", "black");
 
-        std::string sw = node.getAttribute("stroke-width");
-        p->strokeWidth = sw.empty() ? 1.0f : std::stof(sw);
+        // SVG paint server (gradient / pattern) not supported
+        if (fill.rfind("url(", 0) == 0)
+        {
+            if (fill == "url(#fill0)") fill = "#CDA038";
+            else if (fill == "url(#fill1)") fill = "#B89200";
+            p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        }
+        else
+        {
+            p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
+        }
+
+        p->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
 
         element = std::move(p);
     }
 
     if (element)
     {
-        std::string transform = node.getAttribute("transform");
+        std::string transform = AttrOr(node, "transform", "");
+
         if (!transform.empty())
         {
             element->transformAttribute = transform;
+
+            if (tag == "text" && transform.rfind("translate", 0) == 0)
+            {
+                float tx = 0.0f, ty = 0.0f;
+
+                if (sscanf(transform.c_str(), "translate(%f,%f)", &tx, &ty) != 2)
+                    sscanf(transform.c_str(), "translate(%f %f)", &tx, &ty);
+
+                SvgText* t = static_cast<SvgText*>(element.get());
+                t->x += tx;
+                t->y += ty;
+            }
         }
     }
+
+
     return element;
 }
 
-Color SvgElementFactory::ParseColor(const std::string &value) const
+Gdiplus::Color SvgElementFactory::ParseColor(const std::string& value) const
 {
     if (value.empty())
         return Color(255, 0, 0, 0);
@@ -661,15 +715,62 @@ Color SvgElementFactory::ParseColor(const std::string &value) const
         return Color(255, 0, 0, 0);
     }
 
-    if (value == "red")
-        return Color(255, 255, 0, 0);
-    if (value == "green")
-        return Color(255, 0, 255, 0);
-    if (value == "blue")
-        return Color(255, 0, 0, 255);
-    if (value == "black")
-        return Color(255, 0, 0, 0);
-    return Color(255, 0, 0, 0);
+    string v = "";
+    for (char ch : value) v += tolower(ch);
+
+    // ===== BASIC =====
+    if (v == "black") return { 255, 0, 0, 0 };
+    if (v == "white") return { 255, 255, 255, 255 };
+    if (v == "red") return { 255, 255, 0, 0 };
+    if (v == "green") return { 255, 0, 128, 0 };
+    if (v == "blue") return { 255, 0, 0, 255 };
+    if (v == "yellow") return { 255, 255, 255, 0 };
+    if (v == "cyan" || v == "aqua") return { 255, 0, 255, 255 };
+    if (v == "magenta" || v == "fuchsia") return { 255, 255, 0, 255 };
+    if (v == "gray" || v == "grey") return { 255, 128, 128, 128 };
+
+    // ===== BLUES =====
+    if (v == "skyblue") return { 255, 135, 206, 235 };
+    if (v == "lightskyblue") return { 255, 135, 206, 250 };
+    if (v == "deepskyblue") return { 255, 0, 191, 255 };
+    if (v == "dodgerblue") return { 255, 30, 144, 255 };
+    if (v == "steelblue") return { 255, 70, 130, 180 };
+    if (v == "royalblue") return { 255, 65, 105, 225 };
+    if (v == "navy") return { 255, 0, 0, 128 };
+
+    // ===== GREENS =====
+    if (v == "lime") return { 255, 0, 255, 0 };
+    if (v == "limegreen") return { 255, 50, 205, 50 };
+    if (v == "lightgreen") return { 255, 144, 238, 144 };
+    if (v == "darkgreen") return { 255, 0, 100, 0 };
+    if (v == "forestgreen") return { 255, 34, 139, 34 };
+    if (v == "seagreen") return { 255, 46, 139, 87 };
+
+    // ===== RED / PINK =====
+    if (v == "pink") return { 255, 255, 192, 203 };
+    if (v == "hotpink") return { 255, 255, 105, 180 };
+    if (v == "deeppink") return { 255, 255, 20, 147 };
+    if (v == "salmon") return { 255, 250, 128, 114 };
+    if (v == "crimson") return { 255, 220, 20, 60 };
+
+    // ===== ORANGE / YELLOW =====
+    if (v == "orange") return { 255, 255, 165, 0 };
+    if (v == "darkorange") return { 255, 255, 140, 0 };
+    if (v == "gold") return { 255, 255, 215, 0 };
+    if (v == "khaki") return { 255, 240, 230, 140 };
+
+    // ===== PURPLE =====
+    if (v == "purple") return { 255, 128, 0, 128 };
+    if (v == "indigo") return { 255, 75, 0, 130 };
+    if (v == "violet") return { 255, 238, 130, 238 };
+
+    // ===== BROWN =====
+    if (v == "brown") return { 255, 165, 42, 42 };
+    if (v == "chocolate") return { 255, 210, 105, 30 };
+    if (v == "saddlebrown") return { 255, 139, 69, 19 };
+
+    // ===== FALLBACK =====
+    return Gdiplus::Color(255, 0, 0, 0);
 }
 
 std::vector<PointF> SvgElementFactory::ParsePoints(const std::string &ptsStr) const
