@@ -3,7 +3,7 @@
 
 using namespace Gdiplus;
 
-void GdiPlusRenderer::DrawPolyline(const SvgPolyline &polyline)
+void GdiPlusRenderer::DrawPolyline(const SvgPolyline& polyline)
 {
     if (polyline.points.size() < 2)
         return;

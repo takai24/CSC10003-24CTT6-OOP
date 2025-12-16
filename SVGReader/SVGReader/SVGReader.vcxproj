@@ -133,6 +133,7 @@
     <ClInclude Include="RapidXmlNodeAdapter.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="SvgColors.h" />
     <ClInclude Include="SVGReader.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="SvgElement.h" />
@@ -156,6 +157,7 @@
   <ItemGroup>
     <ClCompile Include="RapidXmlNodeAdapter.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="SvgColors.cpp" />
     <ClCompile Include="SVGReader.cpp" />
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="SvgElement.cpp" />

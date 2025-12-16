@@ -6,6 +6,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include "SvgColors.h"
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -570,6 +571,9 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         std::string fill = AttrOr(node, "fill", "none");
         p->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
+        string pointsAttr = node.getAttribute("points");
+        p->points = ParsePoints(pointsAttr);
+
         element = std::move(p);
     }
     else if (tag == "polygon")
@@ -585,6 +589,10 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         p->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
         p->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
+
+        string pointsAttr = node.getAttribute("points");
+        p->points = ParsePoints(pointsAttr);
+
         element = std::move(p);
     }
     else if (tag == "text")
@@ -684,114 +692,72 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
     return element;
 }
 
-Gdiplus::Color SvgElementFactory::ParseColor(const std::string& value) const
+Color SvgElementFactory::ParseColor(const std::string& value) const
 {
-    if (value.empty())
-        return Color(255, 0, 0, 0);
-    if (value == "none")
-        return Color(0, 0, 0, 0);
+    if (value.empty() || value == "none") return Color(0, 0, 0, 0);
 
-    if (value[0] == '#' && value.size() == 7)
-    {
-        int r = std::stoi(value.substr(1, 2), nullptr, 16);
-        int g = std::stoi(value.substr(3, 2), nullptr, 16);
-        int b = std::stoi(value.substr(5, 2), nullptr, 16);
-        return Color(255, r, g, b);
-    }
+    auto Clamp = [](int val) -> BYTE {
+        return static_cast<BYTE>((std::max)(0, (std::min)(255, val)));
+        };
 
-    if (value.rfind("rgb", 0) == 0)
-    {
-        size_t l = value.find('(');
-        size_t rpar = value.find(')');
-        if (l != std::string::npos && rpar != std::string::npos && rpar > l)
-        {
-            std::string inside = value.substr(l + 1, rpar - l - 1);
-            std::replace(inside.begin(), inside.end(), ',', ' ');
-            std::stringstream ss(inside);
-            int rr = 0, gg = 0, bb = 0;
-            ss >> rr >> gg >> bb;
-            return Color(255, rr, gg, bb);
+    if (value[0] == '#') {
+        if (value.size() == 7) {
+            int r = std::stoi(value.substr(1, 2), nullptr, 16);
+            int g = std::stoi(value.substr(3, 2), nullptr, 16);
+            int b = std::stoi(value.substr(5, 2), nullptr, 16);
+            return Color(255, r, g, b);
         }
-        return Color(255, 0, 0, 0);
+        if (value.size() == 4) {
+            std::string r_str = value.substr(1, 1); r_str += r_str;
+            std::string g_str = value.substr(2, 1); g_str += g_str;
+            std::string b_str = value.substr(3, 1); b_str += b_str;
+            int r = std::stoi(r_str, nullptr, 16);
+            int g = std::stoi(g_str, nullptr, 16);
+            int b = std::stoi(b_str, nullptr, 16);
+            return Color(255, r, g, b);
+        }
     }
 
-    string v = "";
-    for (char ch : value) v += tolower(ch);
+    if (value.rfind("rgb", 0) == 0) {
+        size_t start = value.find('(');
+        size_t end = value.find(')');
+        if (start != std::string::npos && end != std::string::npos && end > start) {
+            std::string content = value.substr(start + 1, end - start - 1);
+            std::replace(content.begin(), content.end(), ',', ' ');
+            std::stringstream ss(content);
+            int r = 0, g = 0, b = 0;
+            ss >> r >> g >> b;
+            return Color(255, Clamp(r), Clamp(g), Clamp(b));
+        }
+        return Color(0, 0, 0, 0);
+    }
 
-    // ===== BASIC =====
-    if (v == "black") return { 255, 0, 0, 0 };
-    if (v == "white") return { 255, 255, 255, 255 };
-    if (v == "red") return { 255, 255, 0, 0 };
-    if (v == "green") return { 255, 0, 128, 0 };
-    if (v == "blue") return { 255, 0, 0, 255 };
-    if (v == "yellow") return { 255, 255, 255, 0 };
-    if (v == "cyan" || v == "aqua") return { 255, 0, 255, 255 };
-    if (v == "magenta" || v == "fuchsia") return { 255, 255, 0, 255 };
-    if (v == "gray" || v == "grey") return { 255, 128, 128, 128 };
-
-    // ===== BLUES =====
-    if (v == "skyblue") return { 255, 135, 206, 235 };
-    if (v == "lightskyblue") return { 255, 135, 206, 250 };
-    if (v == "deepskyblue") return { 255, 0, 191, 255 };
-    if (v == "dodgerblue") return { 255, 30, 144, 255 };
-    if (v == "steelblue") return { 255, 70, 130, 180 };
-    if (v == "royalblue") return { 255, 65, 105, 225 };
-    if (v == "navy") return { 255, 0, 0, 128 };
-
-    // ===== GREENS =====
-    if (v == "lime") return { 255, 0, 255, 0 };
-    if (v == "limegreen") return { 255, 50, 205, 50 };
-    if (v == "lightgreen") return { 255, 144, 238, 144 };
-    if (v == "darkgreen") return { 255, 0, 100, 0 };
-    if (v == "forestgreen") return { 255, 34, 139, 34 };
-    if (v == "seagreen") return { 255, 46, 139, 87 };
-
-    // ===== RED / PINK =====
-    if (v == "pink") return { 255, 255, 192, 203 };
-    if (v == "hotpink") return { 255, 255, 105, 180 };
-    if (v == "deeppink") return { 255, 255, 20, 147 };
-    if (v == "salmon") return { 255, 250, 128, 114 };
-    if (v == "crimson") return { 255, 220, 20, 60 };
-
-    // ===== ORANGE / YELLOW =====
-    if (v == "orange") return { 255, 255, 165, 0 };
-    if (v == "darkorange") return { 255, 255, 140, 0 };
-    if (v == "gold") return { 255, 255, 215, 0 };
-    if (v == "khaki") return { 255, 240, 230, 140 };
-
-    // ===== PURPLE =====
-    if (v == "purple") return { 255, 128, 0, 128 };
-    if (v == "indigo") return { 255, 75, 0, 130 };
-    if (v == "violet") return { 255, 238, 130, 238 };
-
-    // ===== BROWN =====
-    if (v == "brown") return { 255, 165, 42, 42 };
-    if (v == "chocolate") return { 255, 210, 105, 30 };
-    if (v == "saddlebrown") return { 255, 139, 69, 19 };
-
-    // ===== FALLBACK =====
-    return Gdiplus::Color(255, 0, 0, 0);
+    Color namedColor = SvgColors::GetColor(value);
+    if (namedColor.GetValue() != 0) { 
+        return namedColor;
+    }
+    return Color(0, 0, 0, 0);
 }
 
 std::vector<PointF> SvgElementFactory::ParsePoints(const std::string &ptsStr) const
 {
-    std::vector<PointF> pts;
-    if (ptsStr.empty())
-        return pts;
+    std::vector<Gdiplus::PointF> points;
+    std::regex re("[-+]?[0-9]*\\.?[0-9]+");
 
-    std::stringstream ss(ptsStr);
-    std::string pair;
+    auto begin = std::sregex_iterator(ptsStr.begin(), ptsStr.end(), re);
+    auto end = std::sregex_iterator();
 
-    while (std::getline(ss, pair, ' '))
-    {
-        size_t comma = pair.find(',');
-        if (comma == std::string::npos)
-            continue;
-
-        float x = std::stof(pair.substr(0, comma));
-        float y = std::stof(pair.substr(comma + 1));
-        pts.push_back(PointF(x, y));
+    std::vector<float> coords;
+    for (auto it = begin; it != end; ++it) {
+        try {
+            coords.push_back(std::stof(it->str()));
+        }
+        catch (...) {}
     }
 
-    return pts;
+    for (size_t i = 0; i + 1 < coords.size(); i += 2) {
+        points.emplace_back(coords[i], coords[i + 1]);
+    }
+
+    return points;
 }

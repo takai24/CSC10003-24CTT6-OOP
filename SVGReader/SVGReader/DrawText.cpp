@@ -47,7 +47,7 @@ static std::wstring ResolveSvgFontFamily(const std::wstring& svgFont)
     return L"Arial";
 }
 
-void GdiPlusRenderer::DrawText(const SvgText &text)
+void GdiPlusRenderer::DrawText(const SvgText& text)
 {
     GraphicsState state = graphics.Save();
     //ApplyTransform(graphics, text.transformAttribute);

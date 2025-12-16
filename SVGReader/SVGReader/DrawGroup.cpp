@@ -127,3 +127,4 @@ void GdiPlusRenderer::DrawGroup(const SvgGroup &group)
 
     graphics.Restore(state);
 }
+

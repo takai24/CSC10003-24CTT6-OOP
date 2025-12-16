@@ -96,7 +96,9 @@ public:
     std::wstring fontFamily{L"Arial"};
     float fontSize{16.0f};
     Color fillColor{255, 0, 0, 0};
-
+    std::string textAnchor = "start";
+    Color strokeColor{ 0, 0, 0, 0 };
+    float strokeWidth{ 1.0f };
     void Draw(IRenderer &renderer) const override;
 };
 
