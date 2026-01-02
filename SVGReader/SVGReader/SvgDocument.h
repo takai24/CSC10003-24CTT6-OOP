@@ -2,12 +2,23 @@
 
 #include "stdafx.h"
 #include "SvgElement.h"
+#include "SvgGradient.h"
 
 class IRenderer;
 
 class SvgDocument
 {
 public:
+    map<string, shared_ptr<SvgGradient>> gradients;
+
+    shared_ptr<SvgGradient> GetGradientById(const string& id) const
+    {
+        auto it = gradients.find(id);
+        if (it != gradients.end())
+            return it->second;
+        return nullptr;
+    }
+
     void AddElement(std::unique_ptr<ISvgElement> element)
     {
         elements.push_back(std::move(element));

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "SvgParser.h"
 
 using namespace rapidxml;
@@ -103,6 +103,109 @@ void SvgParser::ParseChildren(const IXMLNode &parent, SvgDocument &document, Svg
     {
         IXMLNode &child = *childPtr;
         const std::string tag = child.getTagName();
+
+        if (tag == "defs")
+        {
+            auto defChildren = child.getChildren();
+            for (auto& defPtr : defChildren)
+            {
+                IXMLNode& defNode = *defPtr;
+                std::string defTag = defNode.getTagName();
+
+                if (defTag == "linearGradient")
+                {
+                    auto grad = std::make_shared<SvgLinearGradient>();
+                    grad->id = defNode.getAttribute("id");
+
+                    if (!defNode.getAttribute("x1").empty())
+                        grad->x1 = std::stof(defNode.getAttribute("x1"));
+                    if (!defNode.getAttribute("y1").empty())
+                        grad->y1 = std::stof(defNode.getAttribute("y1"));
+                    if (!defNode.getAttribute("x2").empty())
+                        grad->x2 = std::stof(defNode.getAttribute("x2"));
+                    if (!defNode.getAttribute("y2").empty())
+                        grad->y2 = std::stof(defNode.getAttribute("y2"));
+
+                    auto stops = defNode.getChildren();
+                    for (auto& stopPtr : stops)
+                    {
+                        IXMLNode& stopNode = *stopPtr;
+                        if (stopNode.getTagName() != "stop")
+                            continue;
+
+                        SvgGradientStop stop;
+
+                        std::string offsetStr = stopNode.getAttribute("offset");
+                        if (!offsetStr.empty())
+                        {
+                            if (offsetStr.back() == '%')
+                                stop.offset = std::stof(offsetStr) / 100.0f;
+                            else
+                                stop.offset = std::stof(offsetStr);
+                        }
+
+                        if (!stopNode.getAttribute("stop-color").empty())
+                            stop.color = stopNode.getAttribute("stop-color");
+
+                        if (!stopNode.getAttribute("stop-opacity").empty())
+                            stop.opacity = std::stof(stopNode.getAttribute("stop-opacity"));
+
+                        grad->stops.push_back(stop);
+                    }
+
+                    if (!grad->id.empty())
+                        document.gradients[grad->id] = grad;
+                }
+
+                else if (defTag == "radialGradient")
+                {
+                    auto grad = std::make_shared<SvgRadialGradient>();
+                    grad->id = defNode.getAttribute("id");
+
+                    if (!defNode.getAttribute("cx").empty())
+                        grad->cx = std::stof(defNode.getAttribute("cx"));
+                    if (!defNode.getAttribute("cy").empty())
+                        grad->cy = std::stof(defNode.getAttribute("cy"));
+                    if (!defNode.getAttribute("r").empty())
+                        grad->r = std::stof(defNode.getAttribute("r"));
+                    if (!defNode.getAttribute("fx").empty())
+                        grad->fx = std::stof(defNode.getAttribute("fx"));
+                    if (!defNode.getAttribute("fy").empty())
+                        grad->fy = std::stof(defNode.getAttribute("fy"));
+
+                    auto stops = defNode.getChildren();
+                    for (auto& stopPtr : stops)
+                    {
+                        IXMLNode& stopNode = *stopPtr;
+                        if (stopNode.getTagName() != "stop")
+                            continue;
+
+                        SvgGradientStop stop;
+
+                        std::string offsetStr = stopNode.getAttribute("offset");
+                        if (!offsetStr.empty())
+                        {
+                            if (offsetStr.back() == '%')
+                                stop.offset = std::stof(offsetStr) / 100.0f;
+                            else
+                                stop.offset = std::stof(offsetStr);
+                        }
+
+                        if (!stopNode.getAttribute("stop-color").empty())
+                            stop.color = stopNode.getAttribute("stop-color");
+
+                        if (!stopNode.getAttribute("stop-opacity").empty())
+                            stop.opacity = std::stof(stopNode.getAttribute("stop-opacity"));
+
+                        grad->stops.push_back(stop);
+                    }
+
+                    if (!grad->id.empty())
+                        document.gradients[grad->id] = grad;
+                }
+            }
+            continue;
+        }
 
         if (tag == "g")
         {
