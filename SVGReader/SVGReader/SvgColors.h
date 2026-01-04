@@ -1,13 +1,17 @@
+
 #pragma once
 #include <string>
 #include <unordered_map>
-#include <GdiPlus.h>
+#include <gdiplus.h>
 
-class SvgColors
-{
+using namespace Gdiplus;
+
+class SvgColors {
 public:
-    static Gdiplus::Color GetColor(const std::string& name);
+    static void LoadColors(const std::string& filePath);
+
+    static Color GetColor(std::string colorStr, std::string opacityStr = "1.0");
 
 private:
-    static const std::unordered_map<std::string, Gdiplus::Color> s_colorMap;
+    static std::unordered_map<std::string, Color> s_colorMap;
 };

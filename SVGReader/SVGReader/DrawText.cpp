@@ -33,6 +33,10 @@ static std::wstring ResolveSvgFontFamily(const std::wstring& svgFont)
         else if (f == L"serif") f = L"Times New Roman";
         else if (f == L"monospace") f = L"Consolas";
 
+        // Fix common typos / variants
+        if (f == L"Time New Romand") f = L"Times New Roman";
+        if (f == L"Time New Roman") f = L"Times New Roman";
+    
         if (!f.empty())
         {
             FontFamily fam(f.c_str());
@@ -44,13 +48,13 @@ static std::wstring ResolveSvgFontFamily(const std::wstring& svgFont)
     }
 
     // Final fallback
-    return L"Arial";
+    return L"Time New Roman";
 }
 
 void GdiPlusRenderer::DrawText(const SvgText& text)
 {
     GraphicsState state = graphics.Save();
-    //ApplyTransform(graphics, text.transformAttribute);
+    ApplyTransform(graphics, text.transformAttribute);
 
     std::wstring family = ResolveSvgFontFamily(text.fontFamily);
 
@@ -66,8 +70,41 @@ void GdiPlusRenderer::DrawText(const SvgText& text)
         FontStyleRegular, UnitPixel);
 
     SolidBrush brush(text.fillColor);
-    graphics.DrawString(text.text.c_str(), -1, &font,
-        PointF(text.x, text.y), &brush);
 
+    // Create a string format to respect text anchor
+    Gdiplus::StringFormat format;       
+    if (text.textAnchor == "middle")
+        format.SetAlignment(StringAlignmentCenter);
+    else if (text.textAnchor == "end" || text.textAnchor == "right")
+        format.SetAlignment(StringAlignmentFar);
+    else
+        format.SetAlignment(StringAlignmentNear);
+
+    // Compute baseline adjustment: SVG y is baseline, GDI+ AddString origin is top
+    REAL ascent = 0.0f;
+    REAL emHeight = 1.0f;
+    if (fontFamily && fontFamily->IsAvailable())
+    {
+        ascent = static_cast<REAL>(fontFamily->GetCellAscent(FontStyleRegular));
+        emHeight = static_cast<REAL>(fontFamily->GetEmHeight(FontStyleRegular));
+    }
+    REAL ascentPx = (emHeight != 0.0f) ? (text.fontSize * ascent / emHeight) : 0.0f;
+
+   
+    Gdiplus::GraphicsPath path;
+    path.AddString(text.text.c_str(), -1, fontFamily.get(), FontStyleRegular,
+        text.fontSize, PointF(text.x, text.y - ascentPx), &format);
+
+   
+    if (text.fillColor.GetAlpha() > 0)
+        graphics.FillPath(&brush, &path);
+
+    if (text.strokeColor.GetAlpha() > 0 && text.strokeWidth > 0.0f)
+    {
+        Gdiplus::Pen pen(text.strokeColor, text.strokeWidth);
+        pen.SetLineJoin(LineJoinRound);
+        graphics.DrawPath(&pen, &path);
+    }               
+            
     graphics.Restore(state);
 }

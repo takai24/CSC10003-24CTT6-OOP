@@ -2,6 +2,7 @@
 #include "SvgReader.h"
 #include "SvgElementFactory.h"
 #include "GdiPlusRenderer.h"
+#include "SvgColors.h"
 #include <windows.h>
 #include <objidl.h>
 #include <gdiplus.h>
@@ -38,7 +39,6 @@ float g_Scale = 1.0f;
 float g_Angle = 0.0f;
 float g_OffsetX = 0.0f;
 float g_OffsetY = 0.0f;
-// 3 7 8 10 12 16 17 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 VOID OnPaint(HDC hdc);
 bool OpenSVGFileDialog(wchar_t* outPath);
@@ -124,6 +124,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 
     // Init GDI+
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+    SvgColors::LoadColors("Colors.txt");
 
     // Register Window Class
     wndClass.style = CS_HREDRAW | CS_VREDRAW;

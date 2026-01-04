@@ -220,7 +220,9 @@ std::unique_ptr<Gdiplus::GraphicsPath> ParsePathData(const std::string &d)
         if (isalpha(static_cast<unsigned char>(ch)))
         {
             ++i;
-            lastCmd = ch;
+            // Do not update lastCmd here — it should represent the previous
+            // command for handling smooth bezier reflection. lastCmd will be
+            // updated at the end of the loop after the command is processed.
         }
         else if (lastCmd == 0)
         {
@@ -615,6 +617,35 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         const std::string fill = AttrOr(node, "fill", "black");
         t->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
 
+        // Ensure fontSize has a sensible default early so heuristics can use it
+        t->fontSize = AttrOrFloat(node, "font-size", 12.0f);
+
+        // Parse stroke for text (outline)
+        const std::string stroke = AttrOr(node, "stroke", "none");
+        t->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        t->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
+
+        if (t->strokeColor.GetAlpha() == 0 && t->fillColor.GetAlpha() > 0)
+        {
+            int r = t->fillColor.GetR();
+            int g = t->fillColor.GetG();
+            int b = t->fillColor.GetB();
+            float brightness = 0.299f * r + 0.587f * g + 0.114f * b;
+            if ((r == 255 && g == 255 && b == 255) || brightness > 250.0f)
+            {
+                t->strokeColor = Gdiplus::Color(0, 0, 0, 0); 
+                t->strokeWidth = (std::max)(0.3f, t->fontSize / 24.0f);
+            }
+            else if (brightness > 200.0f)
+            {
+                t->strokeColor = Gdiplus::Color(220, 0, 0, 0);
+                t->strokeWidth = (std::max)(0.4f, t->fontSize / 36.0f);
+            }
+        }
+
+        // text-anchor
+        t->textAnchor = AttrOr(node, "text-anchor", "start");
+
         std::string ff = AttrOr(node, "font-family", "");
         if (!ff.empty())
         {
@@ -627,29 +658,25 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
             t->fontFamily = L"Arial";
         }
 
-        // Ensure fontSize has a sensible default (avoid uninitialized value)
-        t->fontSize = AttrOrFloat(node, "font-size", 12.0f);
+        // fontSize already initialized above
 
         element = std::move(t);
     }
     else if (tag == "path")
     {
         auto p = std::make_unique<SvgPath>();
-
         std::string d = AttrOr(node, "d", "");
         p->pathData = ParsePathData(d);
         std::string fr = AttrOr(node, "fill-rule", "");
-        if (fr == "evenodd")
-            p->pathData->SetFillMode(Gdiplus::FillModeAlternate);
-        else
+        if (fr == "nonzero" || fr == "winding")
             p->pathData->SetFillMode(Gdiplus::FillModeWinding);
+        else
+            p->pathData->SetFillMode(Gdiplus::FillModeAlternate);
 
         std::string stroke = AttrOr(node, "stroke", "none");
         p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
 
         std::string fill = AttrOr(node, "fill", "black");
-
-        // SVG paint server (gradient / pattern) not supported
         if (fill.rfind("url(", 0) == 0)
         {
             if (fill == "url(#fill0)") fill = "#CDA038";
@@ -684,6 +711,9 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
                 SvgText* t = static_cast<SvgText*>(element.get());
                 t->x += tx;
                 t->y += ty;
+                // We already applied the translate to x/y, clear transform attribute
+                // so it is not applied again during rendering.
+                t->transformAttribute.clear();
             }
         }
     }

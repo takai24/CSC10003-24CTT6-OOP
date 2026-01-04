@@ -7,48 +7,103 @@ void GdiPlusRenderer::DrawGroup(const SvgGroup &group)
 {
     GraphicsState state = graphics.Save();
     ApplyTransform(graphics, group.transformAttribute);
+    auto computeStrokeColor = [&](const Color &childStroke) -> Color
+    {
+        Color base = group.hasStroke ? group.strokeColor : childStroke;
+        float baseA = base.GetAlpha() / 255.0f;
+        float childA = childStroke.GetAlpha() / 255.0f;
+        if (group.hasStroke && childStroke.GetAlpha() == 0)
+            childA = 1.0f;
+        float groupA = group.hasStrokeOpacity ? group.strokeOpacity : 1.0f;
+        float finalA = baseA * childA * groupA;
+        int aInt = static_cast<int>(finalA * 255.0f + 0.5f);
+        if (aInt < 0)
+            aInt = 0;
+        if (aInt > 255)
+            aInt = 255;
+        BYTE a = static_cast<BYTE>(aInt);
+        return Color(a, base.GetR(), base.GetG(), base.GetB());
+    };
+
+    auto computeFillColor = [&](const Color &childFill) -> Color
+    {
+        Color base = group.hasFill ? group.fillColor : childFill;
+        float baseA = base.GetAlpha() / 255.0f;
+        float childA = childFill.GetAlpha() / 255.0f;
+        float groupA = group.hasFillOpacity ? group.fillOpacity : 1.0f;
+        float finalA = baseA * childA * groupA;
+        int aInt = static_cast<int>(finalA * 255.0f + 0.5f);
+        if (aInt < 0)
+            aInt = 0;
+        if (aInt > 255)
+            aInt = 255;
+        BYTE a = static_cast<BYTE>(aInt);
+        return Color(a, base.GetR(), base.GetG(), base.GetB());
+    };
+
     for (const auto &child : group.children)
     {
         if (auto g = dynamic_cast<SvgGroup *>(child.get()))
         {
+            bool old_hasStroke = g->hasStroke;
+            Color old_strokeColor = g->strokeColor;
+            bool old_hasFill = g->hasFill;
+            Color old_fillColor = g->fillColor;
+            bool old_hasStrokeWidth = g->hasStrokeWidth;
+            float old_strokeWidth = g->strokeWidth;
+            bool old_hasStrokeOpacity = g->hasStrokeOpacity;
+            float old_strokeOpacity = g->strokeOpacity;
+            bool old_hasFillOpacity = g->hasFillOpacity;
+            float old_fillOpacity = g->fillOpacity;
+
+            if (group.hasStroke && !g->hasStroke)
+            {
+                g->hasStroke = true;
+                g->strokeColor = group.strokeColor;
+            }
+
+            if (group.hasFill && !g->hasFill)
+            {
+                g->hasFill = true;
+                g->fillColor = group.fillColor;
+            }
+
+            if (group.hasStrokeWidth && !g->hasStrokeWidth)
+            {
+                g->hasStrokeWidth = true;
+                g->strokeWidth = group.strokeWidth;
+            }
+
+            if (group.hasStrokeOpacity && !g->hasStrokeOpacity)
+            {
+                g->hasStrokeOpacity = true;
+                g->strokeOpacity = group.strokeOpacity;
+            }
+
+            if (group.hasFillOpacity && !g->hasFillOpacity)
+            {
+                g->hasFillOpacity = true;
+                g->fillOpacity = group.fillOpacity;
+            }
+
             g->Draw(*this);
+
+            // restore
+            g->hasStroke = old_hasStroke;
+            g->strokeColor = old_strokeColor;
+            g->hasFill = old_hasFill;
+            g->fillColor = old_fillColor;
+            g->hasStrokeWidth = old_hasStrokeWidth;
+            g->strokeWidth = old_strokeWidth;
+            g->hasStrokeOpacity = old_hasStrokeOpacity;
+            g->strokeOpacity = old_strokeOpacity;
+            g->hasFillOpacity = old_hasFillOpacity;
+            g->fillOpacity = old_fillOpacity;
+
             continue;
         }
 
-        // Helper lambdas to compute effective color and alpha
-        auto computeStrokeColor = [&](const Color &childStroke) -> Color
-        {
-            Color base = group.hasStroke ? group.strokeColor : childStroke;
-            float baseA = base.GetAlpha() / 255.0f;
-            float childA = childStroke.GetAlpha() / 255.0f;
-            float groupA = group.hasStrokeOpacity ? group.strokeOpacity : 1.0f;
-            float finalA = baseA * childA * groupA;
-            int aInt = static_cast<int>(finalA * 255.0f + 0.5f);
-            if (aInt < 0)
-                aInt = 0;
-            if (aInt > 255)
-                aInt = 255;
-            BYTE a = static_cast<BYTE>(aInt);
-            return Color(a, base.GetR(), base.GetG(), base.GetB());
-        };
 
-        auto computeFillColor = [&](const Color &childFill) -> Color
-        {
-            Color base = group.hasFill ? group.fillColor : childFill;
-            float baseA = base.GetAlpha() / 255.0f;
-            float childA = childFill.GetAlpha() / 255.0f;
-            float groupA = group.hasFillOpacity ? group.fillOpacity : 1.0f;
-            float finalA = baseA * childA * groupA;
-            int aInt = static_cast<int>(finalA * 255.0f + 0.5f);
-            if (aInt < 0)
-                aInt = 0;
-            if (aInt > 255)
-                aInt = 255;
-            BYTE a = static_cast<BYTE>(aInt);
-            return Color(a, base.GetR(), base.GetG(), base.GetB());
-        };
-
-        // Draw each shape using a temporary copy so we don't mutate original children
         if (auto line = dynamic_cast<SvgLine *>(child.get()))
         {
             SvgLine tmp = *line;
@@ -114,13 +169,14 @@ void GdiPlusRenderer::DrawGroup(const SvgGroup &group)
         else if (auto text = dynamic_cast<SvgText *>(child.get()))
         {
             SvgText tmp = *text;
-            // For text we only consider fill color/opacities
             tmp.fillColor = computeFillColor(text->fillColor);
+            tmp.strokeColor = computeStrokeColor(text->strokeColor);
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = text->strokeWidth * group.strokeWidth;
             DrawText(tmp);
         }
         else
         {
-            // Fallback: call Draw on child which will route to the renderer
             child->Draw(*this);
         }
     }
