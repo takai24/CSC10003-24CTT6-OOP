@@ -13,6 +13,32 @@
 
 using namespace Gdiplus;
 
+static std::string ExtractStyleProperty(const std::string& style, const std::string& prop)
+{
+    if (style.empty()) return "";
+    std::string key = prop + ":";
+    size_t pos = style.find(key);
+    if (pos == std::string::npos) return "";
+    pos += key.size();
+    // extract until semicolon or end
+    size_t end = style.find(';', pos);
+    std::string val = (end == std::string::npos) ? style.substr(pos) : style.substr(pos, end - pos);
+    // trim
+    size_t a = val.find_first_not_of(" \t\r\n");
+    if (a == std::string::npos) return "";
+    size_t b = val.find_last_not_of(" \t\r\n");
+    return val.substr(a, b - a + 1);
+}
+
+static std::string GetAttrOrStyle(const IXMLNode &node, const char *name)
+{
+    std::string v = node.getAttribute(name);
+    if (!v.empty()) return v;
+    std::string style = node.getAttribute("style");
+    if (style.empty()) return "";
+    return ExtractStyleProperty(style, name);
+}
+
 Gdiplus::Color ApplyOpacity(Gdiplus::Color c, float opacity)
 {
     if (opacity < 0.0f)
@@ -526,8 +552,8 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         r->w = AttrOrFloat(node, "width", 0.0f);
         r->h = AttrOrFloat(node, "height", 0.0f);
 
-        std::string rawFill = node.getAttribute("fill");
-        const std::string fill = AttrOr(node, "fill", "black");
+        std::string rawFill = GetAttrOrStyle(node, "fill");
+        const std::string fill = rawFill.empty() ? "black" : rawFill;
         // SVG default: fill is black
         r->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
         if (!rawFill.empty()) { r->hasFill = (rawFill != "none"); }
@@ -553,10 +579,11 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         c->cy = AttrOrFloat(node, "cy", 0.0f);
         c->r = AttrOrFloat(node, "r", 0.0f);
 
-        std::string rawFill = node.getAttribute("fill");
-        const std::string fill = AttrOr(node, "fill", "black");
+        std::string rawFill = GetAttrOrStyle(node, "fill");
+        const std::string fill = rawFill.empty() ? "black" : rawFill;
         c->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
         if (!rawFill.empty()) { c->hasFill = (rawFill != "none"); }
+        c->fillAttributeString = rawFill;
 
         std::string rawStroke = node.getAttribute("stroke");
         const std::string stroke = AttrOr(node, "stroke", "none");
@@ -578,8 +605,8 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         e->rx = AttrOrFloat(node, "rx", 0.0f);
         e->ry = AttrOrFloat(node, "ry", 0.0f);
 
-        std::string rawFill = node.getAttribute("fill");
-        const std::string fill = AttrOr(node, "fill", "black");
+        std::string rawFill = GetAttrOrStyle(node, "fill");
+        const std::string fill = rawFill.empty() ? "black" : rawFill;
         e->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
         if (!rawFill.empty()) { e->hasFill = (rawFill != "none"); }
         e->fillAttributeString = rawFill;
@@ -630,8 +657,8 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
         if (!rawStroke.empty()) { p->hasStroke = (rawStroke != "none"); }
 
-        std::string rawFill = node.getAttribute("fill");
-        const std::string fill = AttrOr(node, "fill", "black");
+        std::string rawFill = GetAttrOrStyle(node, "fill");
+        const std::string fill = rawFill.empty() ? "black" : rawFill;
         // polygon default fill is black
         p->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
         if (!rawFill.empty()) { p->hasFill = (rawFill != "none"); }
@@ -737,8 +764,8 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
         if (!rawStroke.empty()) { p->hasStroke = (rawStroke != "none"); }
 
-        std::string rawFill = node.getAttribute("fill");
-        std::string fill = AttrOr(node, "fill", "black");
+        std::string rawFill = GetAttrOrStyle(node, "fill");
+        std::string fill = rawFill.empty() ? "black" : rawFill;
         if (fill.rfind("url(", 0) == 0)
         {
             if (fill == "url(#fill0)") fill = "#CDA038";

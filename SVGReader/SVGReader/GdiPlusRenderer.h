@@ -40,6 +40,7 @@ private:
 
     Gdiplus::Brush* CreateBrush(const std::string& fillAttributeString, Gdiplus::Color fillColor, const Gdiplus::RectF& bounds);
     Gdiplus::LinearGradientBrush* CreateLinearBrush(const SvgLinearGradient* grad, const Gdiplus::RectF& bounds);
+    Gdiplus::Brush* CreateRadialBrush(const SvgRadialGradient* grad, const Gdiplus::RectF& bounds);
     Gdiplus::SolidBrush* CreateRadialFallbackBrush(const SvgGradient* grad);
     Gdiplus::Matrix* ParseMatrix(const std::string& transformStr);
 };

@@ -15,6 +15,42 @@ static std::string GetIdFromUrl(const std::string& url) {
     return url.substr(s + 5, e - (s + 5));
 }
 
+// Minimal color parser for simple fills (used when fill attribute string is present)
+static Color ParseColorString(const std::string& value)
+{
+    if (value.empty()) return Color(0,0,0,0);
+    if (value[0] == '#') {
+        std::string v = value;
+        if (v.size() == 4) {
+            // #RGB -> #RRGGBB
+            std::string tmp = "#";
+            for (int i = 1; i < 4; ++i) { tmp.push_back(v[i]); tmp.push_back(v[i]); }
+            v = tmp;
+        }
+        if (v.size() == 7) {
+            try {
+                int r = std::stoi(v.substr(1,2), nullptr, 16);
+                int g = std::stoi(v.substr(3,2), nullptr, 16);
+                int b = std::stoi(v.substr(5,2), nullptr, 16);
+                return Color(255, r, g, b);
+            } catch(...) { return Color(0,0,0,0); }
+        }
+        return Color(0,0,0,0);
+    }
+    if (value.rfind("rgb", 0) == 0) {
+        size_t a = value.find('(');
+        size_t b = value.find(')');
+        if (a != std::string::npos && b != std::string::npos && b > a) {
+            std::string content = value.substr(a+1, b-a-1);
+            for (char &c : content) if (c == ',') c = ' ';
+            std::stringstream ss(content);
+            int r=0,g=0,bv=0; ss >> r >> g >> bv;
+            return Color(255, (BYTE)r, (BYTE)g, (BYTE)bv);
+        }
+    }
+    return Color(0,0,0,0);
+}
+
 Matrix* GdiPlusRenderer::ParseMatrix(const std::string& transformStr) {
     auto matrix = new Matrix(); 
 
@@ -79,26 +115,142 @@ Matrix* GdiPlusRenderer::ParseMatrix(const std::string& transformStr) {
 
 LinearGradientBrush* GdiPlusRenderer::CreateLinearBrush(const SvgLinearGradient* grad, const RectF& bounds) {
     PointF p1, p2;
+    // If gradientUnits is objectBoundingBox (default), treat coords as unit-space and apply gradientTransform in unit space
     if (grad->gradientUnits == "userSpaceOnUse") {
         p1 = PointF(grad->x1, grad->y1); p2 = PointF(grad->x2, grad->y2);
+        if (!grad->gradientTransform.empty()) {
+            Matrix* m = ParseMatrix(grad->gradientTransform);
+            if (m) {
+                PointF pts[2] = { p1, p2 };
+                m->TransformPoints(pts, 2);
+                p1 = pts[0]; p2 = pts[1];
+                delete m;
+            }
+        }
     }
     else {
-        p1 = PointF(bounds.X + grad->x1 * bounds.Width, bounds.Y + grad->y1 * bounds.Height);
-        p2 = PointF(bounds.X + grad->x2 * bounds.Width, bounds.Y + grad->y2 * bounds.Height);
+        // unit-space points
+        PointF u1(grad->x1, grad->y1), u2(grad->x2, grad->y2);
+        if (!grad->gradientTransform.empty()) {
+            Matrix* m = ParseMatrix(grad->gradientTransform);
+            if (m) {
+                PointF pts[2] = { u1, u2 };
+                m->TransformPoints(pts, 2);
+                u1 = pts[0]; u2 = pts[1];
+                delete m;
+            }
+        }
+        p1 = PointF(bounds.X + u1.X * bounds.Width, bounds.Y + u1.Y * bounds.Height);
+        p2 = PointF(bounds.X + u2.X * bounds.Width, bounds.Y + u2.Y * bounds.Height);
     }
     if (abs(p1.X - p2.X) < 0.001f && abs(p1.Y - p2.Y) < 0.001f) p2.X += 0.1f;
 
     auto brush = new LinearGradientBrush(p1, p2, Color::Black, Color::White);
     int count = grad->stops.size();
     if (count > 0) {
-        std::vector<Color> colors; std::vector<REAL> positions;
-        for (const auto& s : grad->stops) { colors.push_back(s.color); positions.push_back(s.offset); }
-        brush->SetInterpolationColors(colors.data(), positions.data(), count);
+        // sort stops by offset and clamp offsets to [0,1]
+        std::vector<std::pair<float, Color>> arr;
+        arr.reserve(count);
+        for (const auto& s : grad->stops) {
+            float off = s.offset;
+            if (off < 0.0f) off = 0.0f;
+            if (off > 1.0f) off = 1.0f;
+            arr.push_back(std::make_pair(off, s.color));
+        }
+        std::sort(arr.begin(), arr.end(), [](const std::pair<float, Color>& a, const std::pair<float, Color>& b){ return a.first < b.first; });
+
+        // If only one stop, set both linear colors to that color
+        if (arr.size() == 1) {
+            brush->SetLinearColors(arr.front().second, arr.front().second);
+            return brush;
+        }
+
+        std::vector<Color> colors; std::vector<REAL> stopsArr;
+        for (const auto& p : arr) { colors.push_back(p.second); stopsArr.push_back(p.first); }
+        brush->SetInterpolationColors(colors.data(), stopsArr.data(), (INT)colors.size());
     }
-    if (!grad->gradientTransform.empty()) {
-        // Parse transform gradient
-    }
+    // Any remaining gradientTransform (already applied for unit-space above) for userSpaceOnUse case handled by transforming points.
     return brush;
+}
+
+Brush* GdiPlusRenderer::CreateRadialBrush(const SvgRadialGradient* grad, const RectF& bounds) {
+    // Determine center and radius in device/user space
+    PointF centerUser;
+    float rUser = 0.0f;
+
+    if (grad->gradientUnits == "userSpaceOnUse") {
+        PointF c(grad->cx, grad->cy);
+        PointF pr(grad->cx + grad->r, grad->cy);
+        if (!grad->gradientTransform.empty()) {
+            Matrix* m = ParseMatrix(grad->gradientTransform);
+            if (m) {
+                PointF pts[2] = { c, pr };
+                m->TransformPoints(pts, 2);
+                c = pts[0]; pr = pts[1];
+                delete m;
+            }
+        }
+        centerUser = c;
+        float dx = pr.X - c.X; float dy = pr.Y - c.Y;
+        rUser = sqrtf(dx*dx + dy*dy);
+    } else {
+        // unit-space coordinates
+        PointF uc(grad->cx, grad->cy);
+        PointF upr(grad->cx + grad->r, grad->cy);
+        if (!grad->gradientTransform.empty()) {
+            Matrix* m = ParseMatrix(grad->gradientTransform);
+            if (m) {
+                PointF pts[2] = { uc, upr };
+                m->TransformPoints(pts, 2);
+                uc = pts[0]; upr = pts[1];
+                delete m;
+            }
+        }
+        // Map to user space using bounding box
+        PointF c(bounds.X + uc.X * bounds.Width, bounds.Y + uc.Y * bounds.Height);
+        PointF pr(bounds.X + upr.X * bounds.Width, bounds.Y + upr.Y * bounds.Height);
+        centerUser = c;
+        float dx = pr.X - c.X; float dy = pr.Y - c.Y;
+        rUser = sqrtf(dx*dx + dy*dy);
+    }
+
+    if (rUser <= 0.0f) return CreateRadialFallbackBrush(grad);
+
+    // Build boundary points approximating the circle centered at centerUser with radius rUser
+    const int STEPS = 48;
+    std::vector<PointF> pts;
+    pts.reserve(STEPS);
+    for (int i = 0; i < STEPS; ++i) {
+        float theta = (2.0f * 3.14159265f * i) / STEPS;
+        float px = centerUser.X + cosf(theta) * rUser;
+        float py = centerUser.Y + sinf(theta) * rUser;
+        pts.emplace_back(px, py);
+    }
+
+    PathGradientBrush* pgb = new PathGradientBrush(pts.data(), (INT)pts.size());
+
+    int count = grad->stops.size();
+    if (count > 0) {
+        // Prepare sorted stops
+        std::vector<std::pair<float, Color>> arr;
+        arr.reserve(count);
+        for (const auto& s : grad->stops) {
+            float off = s.offset; if (off < 0.0f) off = 0.0f; if (off > 1.0f) off = 1.0f;
+            arr.emplace_back(off, s.color);
+        }
+        std::sort(arr.begin(), arr.end(), [](const auto& a, const auto& b){ return a.first < b.first; });
+
+        // Set interpolation colors: first entry should represent center color
+        std::vector<Color> colors; std::vector<REAL> positions;
+        for (const auto &p : arr) { colors.push_back(p.second); positions.push_back(p.first); }
+        // Ensure center color is set to color at offset 0 (or first stop)
+        pgb->SetCenterColor(colors.front());
+        if (colors.size() >= 2) {
+            pgb->SetInterpolationColors(colors.data(), positions.data(), (INT)colors.size());
+        }
+    }
+
+    return pgb;
 }
 
 SolidBrush* GdiPlusRenderer::CreateRadialFallbackBrush(const SvgGradient* grad) {
@@ -117,6 +269,9 @@ Brush* GdiPlusRenderer::CreateBrush(const std::string& fillAttributeString, Gdip
             auto baseGrad = it->second;
             if (auto linGrad = std::dynamic_pointer_cast<SvgLinearGradient>(baseGrad)) {
                 return CreateLinearBrush(linGrad.get(), bounds);
+            }
+            else if (auto radGrad = std::dynamic_pointer_cast<SvgRadialGradient>(baseGrad)) {
+                return CreateRadialBrush(radGrad.get(), bounds);
             }
             else {
                 return CreateRadialFallbackBrush(baseGrad.get());

@@ -156,6 +156,30 @@ void SvgParser::ParseChildren(const IXMLNode& parent, SvgDocument& document, Svg
                         float offset = ParseOffset(stopNode.getAttribute("offset"));
                         std::string colorStr = stopNode.getAttribute("stop-color");
                         std::string opacityStr = stopNode.getAttribute("stop-opacity");
+                        if (colorStr.empty()) {
+                            // try style attribute like "stop-color:#fff;stop-opacity:0.5"
+                            std::string style = stopNode.getAttribute("style");
+                            if (!style.empty()) {
+                                size_t pos = style.find("stop-color:");
+                                if (pos != std::string::npos) {
+                                    pos += strlen("stop-color:");
+                                    size_t end = style.find(';', pos);
+                                    colorStr = (end == std::string::npos) ? style.substr(pos) : style.substr(pos, end - pos);
+                                    // trim
+                                    size_t a = colorStr.find_first_not_of(" \t\r\n");
+                                    if (a != std::string::npos) {
+                                        size_t b = colorStr.find_last_not_of(" \t\r\n");
+                                        colorStr = colorStr.substr(a, b - a + 1);
+                                    }
+                                }
+                                pos = style.find("stop-opacity:");
+                                if (pos != std::string::npos) {
+                                    pos += strlen("stop-opacity:");
+                                    size_t end = style.find(';', pos);
+                                    opacityStr = (end == std::string::npos) ? style.substr(pos) : style.substr(pos, end - pos);
+                                }
+                            }
+                        }
 
                         Gdiplus::Color finalColor = SvgColors::GetColor(colorStr, opacityStr);
                         grad->stops.push_back(SvgGradientStop(offset, finalColor));
