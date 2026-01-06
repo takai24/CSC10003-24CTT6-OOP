@@ -57,7 +57,7 @@ VOID OnPaint(HDC hdc)
         Gdiplus::Font font(&fontFamily, 18, FontStyleRegular, UnitPixel);
         SolidBrush brush(Color(255, 0, 0, 0));
         graphics.DrawString(
-            L"Chào mừng đến với SVG Reader (v2.0) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
+            L"Chào mừng đến với SVG Reader (v3.2) của Nhóm 13. \nBắt đầu bằng cách ấn File -> Mở File...",
             -1,
             &font,
             PointF(20, 350),
@@ -520,7 +520,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             return 0;
 
         case ID_PROJECT:
-            MessageBox(hWnd, L"Gíao viên hướng dẫn: \n- Thầy Đỗ Nguyễn Kha \n- Thầy Mai Anh Tuấn \n- Thầy Phạm Nguyễn Sơn Tùng \n \nSVGReader phiên bản: 2.0", L"Thông tin Đồ án", MB_OK);
+            MessageBox(hWnd, L"Gíao viên hướng dẫn: \n- Thầy Đỗ Nguyễn Kha \n- Thầy Mai Anh Tuấn \n- Thầy Phạm Nguyễn Sơn Tùng \n \nSVGReader phiên bản: 3.2", L"Thông tin Đồ án", MB_OK);
             return 0;
 
         case ID_BTN_ZOOM_IN:
