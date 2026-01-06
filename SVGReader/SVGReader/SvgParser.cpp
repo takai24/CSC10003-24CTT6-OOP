@@ -229,6 +229,7 @@ void SvgParser::ParseChildren(const IXMLNode& parent, SvgDocument& document, Svg
             {
                 group->hasFill = true;
                 group->fillColor = factory.ParseColor(child.getAttribute("fill"));
+                group->fillAttributeString = child.getAttribute("fill");
             }
 
             if (!child.getAttribute("stroke-width").empty())

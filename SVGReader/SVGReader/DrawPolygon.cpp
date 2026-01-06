@@ -27,7 +27,8 @@ void GdiPlusRenderer::DrawPolygon(const SvgPolygon& polygon)
 
     if (brush)
     {
-        graphics.FillPolygon(brush, polygon.points.data(), (INT)polygon.points.size());
+        graphics.FillPolygon(brush, polygon.points.data(), (INT)polygon.points.size(), FillModeWinding);
+
         delete brush;
     }
 

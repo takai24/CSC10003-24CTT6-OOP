@@ -15,6 +15,7 @@ public:
 
 private:
     SvgElementFactory factory;
+    void ParseStyleAttributes(const IXMLNode& node, ISvgElement* element);
 
     void ParseChildren(const IXMLNode &parent, SvgDocument &document, SvgGroup *currentGroup);
 };

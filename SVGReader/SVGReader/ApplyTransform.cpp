@@ -1,13 +1,13 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "GdiPlusRenderer.h"
 
 using namespace Gdiplus;
 
-static std::vector<float> ParseNumbersLocal(const std::string &args)
+static std::vector<float> ParseNumbersLocal(const std::string& args)
 {
     std::vector<float> numbers;
     std::string temp = args;
-    for (char &c : temp)
+    for (char& c : temp)
         if (c == ',')
             c = ' ';
 
@@ -20,7 +20,7 @@ static std::vector<float> ParseNumbersLocal(const std::string &args)
     return numbers;
 }
 
-void GdiPlusRenderer::ApplyTransform(Graphics &graphics, const std::string &transformStr)
+void GdiPlusRenderer::ApplyTransform(Graphics& graphics, const std::string& transformStr)
 {
     if (transformStr.empty())
         return;
