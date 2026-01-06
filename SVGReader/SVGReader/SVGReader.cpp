@@ -40,16 +40,30 @@ float g_Angle = 0.0f;
 float g_OffsetX = 0.0f;
 float g_OffsetY = 0.0f;
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-VOID OnPaint(HDC hdc);
+VOID OnPaint(HDC hdc, HWND hWnd);
 bool OpenSVGFileDialog(wchar_t* outPath);
 void SetButtonsVisible(HWND hWnd, bool visible);
 
-VOID OnPaint(HDC hdc)
+VOID OnPaint(HDC hdc, HWND hWnd)
 {
-    Graphics graphics(hdc);
-    graphics.Clear(Color(255, 255, 255, 255));
+    RECT rect;
+    GetClientRect(hWnd, &rect);
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+
+    if (width <= 0 || height <= 0) return;
+
+    // Double Buffering: Draw to a bitmap (backbuffer) then draw bitmap to screen
+    Bitmap backBuffer(width, height, PixelFormat32bppARGB);
+    Graphics graphics(&backBuffer);
+
+    // High quality rendering settings
     graphics.SetSmoothingMode(SmoothingModeAntiAlias);
     graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
+    graphics.SetPixelOffsetMode(PixelOffsetModeHighQuality);
+    graphics.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+
+    graphics.Clear(Color(255, 255, 255, 255));
 
     if (!globalRenderer)
     {
@@ -75,11 +89,9 @@ VOID OnPaint(HDC hdc)
         GdiPlusRenderer renderer(graphics);
         // Scale 90%
         graphics.ScaleTransform(0.9f, 0.9f);
-        // Move center
-        RECT rect;
-        GetClientRect(WindowFromDC(hdc), &rect);
-        float g_CenterX = (float)(rect.right - rect.left) / 2.0f;
-        float g_CenterY = (float)(rect.bottom - rect.top) / 2.0f;
+        
+        float g_CenterX = (float)width / 2.0f;
+        float g_CenterY = (float)height / 2.0f;
 
         graphics.TranslateTransform(g_CenterX, g_CenterY);
         // Pan
@@ -94,6 +106,10 @@ VOID OnPaint(HDC hdc)
         globalRenderer->GetDocument().Render(renderer);
         graphics.ResetTransform();
     }
+
+    // Output to screen
+    Graphics screenGraphics(hdc);
+    screenGraphics.DrawImage(&backBuffer, 0, 0);
 }
 
 // Open file dialog (accepts .svg only)
@@ -570,7 +586,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
-        OnPaint(hdc);
+        OnPaint(hdc, hWnd);
         EndPaint(hWnd, &ps);
         return 0;
 

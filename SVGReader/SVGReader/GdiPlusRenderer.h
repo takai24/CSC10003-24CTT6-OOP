@@ -26,6 +26,11 @@ class GdiPlusRenderer : public IRenderer
 public:
     explicit GdiPlusRenderer(Gdiplus::Graphics &g) : graphics(g) {}
 
+    void SetGradients(const std::unordered_map<std::string, std::shared_ptr<SvgGradient>>& gradients) override
+    {
+        this->gradients = gradients;
+    }
+
     void DrawLine(const SvgLine &line) override;
     void DrawRect(const SvgRect &rect) override;
     void DrawCircle(const SvgCircle &circle) override;
@@ -38,4 +43,7 @@ public:
     void DrawGroup(const SvgGroup& group) override;
 private:
     Gdiplus::Graphics &graphics;
+    std::unordered_map<std::string, std::shared_ptr<SvgGradient>> gradients;
+
+    std::unique_ptr<Gdiplus::Brush> CreateFillBrush(const std::string& fillUrl, Gdiplus::Color fillColor, float fillOpacity, const Gdiplus::RectF& bounds);
 };

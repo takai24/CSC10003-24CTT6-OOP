@@ -11,10 +11,14 @@ void GdiPlusRenderer::DrawPath(const SvgPath &path)
     GraphicsState state = graphics.Save();
     ApplyTransform(graphics, path.transformAttribute);
     Pen pen(path.strokeColor, path.strokeWidth);
-    SolidBrush brush(path.fillColor);
-    if (path.fillColor.GetAlpha() > 0)
+    
+    RectF bounds;
+    path.pathData->GetBounds(&bounds);
+    auto brush = CreateFillBrush(path.fillUrl, path.fillColor, path.fillOpacity, bounds);
+
+    if (brush && (path.fillColor.GetAlpha() > 0 || !path.fillUrl.empty()))
     {
-        graphics.FillPath(&brush, path.pathData.get());
+        graphics.FillPath(brush.get(), path.pathData.get());
     }
 
     if (path.strokeColor.GetAlpha() > 0 && path.strokeWidth > 0.0f)

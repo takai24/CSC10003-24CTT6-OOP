@@ -40,12 +40,22 @@ void SvgColors::LoadColors(const std::string& filePath) {
         hexa_code = vct[n - 1]; 
 
         try {
-            if (hexa_code.size() >= 7 && hexa_code[0] == '#') {
-                int r = stoi(hexa_code.substr(1, 2), nullptr, 16);
-                int g = stoi(hexa_code.substr(3, 2), nullptr, 16);
-                int b = stoi(hexa_code.substr(5, 2), nullptr, 16);
-
-                s_colorMap[color_name] = Color(255, r, g, b);
+            if (!hexa_code.empty() && hexa_code[0] == '#') {
+                if (hexa_code.size() == 4) { // #RGB
+                    string r_s = string(2, hexa_code[1]);
+                    string g_s = string(2, hexa_code[2]);
+                    string b_s = string(2, hexa_code[3]);
+                    int r = stoi(r_s, nullptr, 16);
+                    int g = stoi(g_s, nullptr, 16);
+                    int b = stoi(b_s, nullptr, 16);
+                    s_colorMap[color_name] = Color(255, r, g, b);
+                }
+                else if (hexa_code.size() >= 7) { // #RRGGBB
+                    int r = stoi(hexa_code.substr(1, 2), nullptr, 16);
+                    int g = stoi(hexa_code.substr(3, 2), nullptr, 16);
+                    int b = stoi(hexa_code.substr(5, 2), nullptr, 16);
+                    s_colorMap[color_name] = Color(255, r, g, b);
+                }
             }
         }
         catch (...) {

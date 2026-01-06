@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "SvgDocument.h"
+#include "SvgGradient.h"
 #include "SvgElementFactory.h"
 #include "IXMLNode.h"
 #include "RapidXmlNodeAdapter.h"
@@ -17,4 +18,6 @@ private:
     SvgElementFactory factory;
 
     void ParseChildren(const IXMLNode &parent, SvgDocument &document, SvgGroup *currentGroup);
+    void ParseGradientStops(const IXMLNode &node, SvgGradient *grad);
+    void ParseGradient(const IXMLNode &node, SvgDocument &document);
 };

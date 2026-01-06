@@ -202,7 +202,11 @@ std::unique_ptr<Gdiplus::GraphicsPath> ParsePathData(const std::string &d)
             return false;
         try
         {
-            out = std::stof(s.substr(start, i - start));
+            // use C locale for parsing
+             std::string numStr = s.substr(start, i - start);
+             std::stringstream ss(numStr);
+             ss.imbue(std::locale::classic());
+             ss >> out;
         }
         catch (...)
         {
@@ -473,12 +477,47 @@ namespace
             return def;
         try
         {
-            return std::stof(v);
+             std::stringstream ss(v);
+             ss.imbue(std::locale::classic());
+             float val = def;
+             ss >> val;
+             return val;
         }
         catch (...)
         {
             return def;
         }
+    }
+
+
+    std::unordered_map<std::string, std::string> ParseStyleAttribute(const std::string& style)
+    {
+        std::unordered_map<std::string, std::string> styles;
+        if (style.empty()) return styles;
+
+        std::stringstream ss(style);
+        std::string item;
+        while (std::getline(ss, item, ';'))
+        {
+            size_t colon = item.find(':');
+            if (colon != std::string::npos)
+            {
+                std::string key = item.substr(0, colon);
+                std::string val = item.substr(colon + 1);
+                
+                // trim spaces
+                auto trim = [](std::string& s) {
+                    size_t first = s.find_first_not_of(' ');
+                    if (std::string::npos == first) { s = ""; return; }
+                    size_t last = s.find_last_not_of(' ');
+                    s = s.substr(first, (last - first + 1));
+                };
+                trim(key);
+                trim(val);
+                if (!key.empty()) styles[key] = val;
+            }
+        }
+        return styles;
     }
 }
 
@@ -490,102 +529,166 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
 
     std::unique_ptr<ISvgElement> element = nullptr;
 
+    std::string styleStr = node.getAttribute("style");
+    auto styles = ParseStyleAttribute(styleStr);
+
+    auto GetAttr = [&](const char* name) -> std::string {
+        auto it = styles.find(name);
+        if (it != styles.end()) return it->second;
+        return node.getAttribute(name);
+    };
+
+    auto AttrOr = [&](const IXMLNode& n, const char* name, const std::string& def) -> std::string {
+        std::string v = GetAttr(name);
+        return v.empty() ? def : v;
+    };
+
+    auto AttrOrFloat = [&](const IXMLNode& n, const char* name, float def) -> float {
+        std::string v = GetAttr(name);
+        if (v.empty()) return def;
+        try { 
+             std::stringstream ss(v);
+             ss.imbue(std::locale::classic());
+             float val = def;
+             ss >> val;
+             return val;
+        } catch (...) { return def; }
+    };
+
     float fillOp = AttrOrFloat(node, "fill-opacity", 1.0f);
     float strokeOp = AttrOrFloat(node, "stroke-opacity", 1.0f);
+
+    auto ParsePaint = [&](const char* attr, const std::string& fallback, ISvgElement* target, bool isFill) -> Gdiplus::Color {
+        std::string val = GetAttr(attr);
+        if (val.empty() && target)
+        {
+             // Check if target already has input flag set? 
+             // Actually, the caller sets the flag if GetAttr is not empty.
+             return ApplyOpacity(ParseColor(fallback), isFill ? fillOp : strokeOp);
+        }
+        if (val.empty()) val = fallback;
+
+        // Check for url(#id)
+        if (isFill && val.rfind("url(", 0) == 0)
+        {
+            size_t start = val.find('(');
+            size_t end = val.find(')');
+            if (start != std::string::npos && end != std::string::npos && end > start)
+            {
+                std::string url = val.substr(start + 1, end - start - 1);
+                if (!url.empty() && url[0] == '#')
+                    target->fillUrl = url.substr(1);
+            }
+            // Fallback for gradient is usually transparent if not found? 
+            // Or use the fallback color provided?
+            // "If the reference is not valid... treat as if 'none' was specified."
+            // But we need a brush. Let's return the fallback color applied with opacity.
+            // If fallback was "black", we return black.
+            return ApplyOpacity(ParseColor(fallback), fillOp);
+        }
+
+        return ApplyOpacity(ParseColor(val), isFill ? fillOp : strokeOp);
+    };
+
+    // Generic transform parsing
+    std::string transformAttr = AttrOr(node, "transform", "");
 
     if (tag == "line")
     {
         auto line = std::make_unique<SvgLine>();
+        line->transformAttribute = transformAttr;
+        line->fillOpacity = fillOp;
+        line->strokeOpacity = strokeOp;
         line->x1 = AttrOrFloat(node, "x1", 0.0f);
         line->y1 = AttrOrFloat(node, "y1", 0.0f);
         line->x2 = AttrOrFloat(node, "x2", 0.0f);
         line->y2 = AttrOrFloat(node, "y2", 0.0f);
 
-        if (!node.getAttribute("stroke").empty()) line->hasInputStroke = true;
-        std::string stroke = AttrOr(node, "stroke", "none");
-        // SVG default: stroke is 'none' (shapes won't be stroked unless stroke specified)
-        line->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) line->hasInputStroke = true;
+        line->strokeColor = ParsePaint("stroke", "none", line.get(), false);
 
-        if (!node.getAttribute("stroke-width").empty()) line->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) line->hasInputStrokeWidth = true;
         line->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(line);
     }
     else if (tag == "rect")
     {
         auto r = std::make_unique<SvgRect>();
+        r->transformAttribute = transformAttr;
+        r->fillOpacity = fillOp;
+        r->strokeOpacity = strokeOp;
         r->x = AttrOrFloat(node, "x", 0.0f);
         r->y = AttrOrFloat(node, "y", 0.0f);
         r->w = AttrOrFloat(node, "width", 0.0f);
         r->h = AttrOrFloat(node, "height", 0.0f);
 
-        if (!node.getAttribute("fill").empty()) r->hasInputFill = true;
-        const std::string fill = AttrOr(node, "fill", "black");
-        // SVG default: fill is black
-        r->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
+        if (!GetAttr("fill").empty()) r->hasInputFill = true;
+        r->fillColor = ParsePaint("fill", "black", r.get(), true);
 
-        if (!node.getAttribute("stroke").empty()) r->hasInputStroke = true;
-        const std::string stroke = AttrOr(node, "stroke", "none");
-        // SVG default: stroke is none
-        r->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) r->hasInputStroke = true;
+        r->strokeColor = ParsePaint("stroke", "none", r.get(), false);
 
-        if (!node.getAttribute("stroke-width").empty()) r->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) r->hasInputStrokeWidth = true;
         r->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(r);
     }
     else if (tag == "circle")
     {
         auto c = std::make_unique<SvgCircle>();
+        c->transformAttribute = transformAttr;
+        c->fillOpacity = fillOp;
+        c->strokeOpacity = strokeOp;
         c->cx = AttrOrFloat(node, "cx", 0.0f);
         c->cy = AttrOrFloat(node, "cy", 0.0f);
         c->r = AttrOrFloat(node, "r", 0.0f);
 
-        if (!node.getAttribute("fill").empty()) c->hasInputFill = true;
-        const std::string fill = AttrOr(node, "fill", "black");
-        c->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
+        if (!GetAttr("fill").empty()) c->hasInputFill = true;
+        c->fillColor = ParsePaint("fill", "black", c.get(), true);
 
-        if (!node.getAttribute("stroke").empty()) c->hasInputStroke = true;
-        const std::string stroke = AttrOr(node, "stroke", "none");
-        c->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) c->hasInputStroke = true;
+        c->strokeColor = ParsePaint("stroke", "none", c.get(), false);
 
-        if (!node.getAttribute("stroke-width").empty()) c->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) c->hasInputStrokeWidth = true;
         c->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(c);
     }
     else if (tag == "ellipse")
     {
         auto e = std::make_unique<SvgEllipse>();
+        e->transformAttribute = transformAttr;
+        e->fillOpacity = fillOp;
+        e->strokeOpacity = strokeOp;
         e->cx = AttrOrFloat(node, "cx", 0.0f);
         e->cy = AttrOrFloat(node, "cy", 0.0f);
         e->rx = AttrOrFloat(node, "rx", 0.0f);
         e->ry = AttrOrFloat(node, "ry", 0.0f);
 
-        if (!node.getAttribute("fill").empty()) e->hasInputFill = true;
-        const std::string fill = AttrOr(node, "fill", "black");
-        e->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
+        if (!GetAttr("fill").empty()) e->hasInputFill = true;
+        e->fillColor = ParsePaint("fill", "black", e.get(), true);
 
-        if (!node.getAttribute("stroke").empty()) e->hasInputStroke = true;
-        const std::string stroke = AttrOr(node, "stroke", "none");
-        e->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) e->hasInputStroke = true;
+        e->strokeColor = ParsePaint("stroke", "none", e.get(), false);
 
-        if (!node.getAttribute("stroke-width").empty()) e->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) e->hasInputStrokeWidth = true;
         e->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
         element = std::move(e);
     }
     else if (tag == "polyline")
     {
         auto p = std::make_unique<SvgPolyline>();
+        p->transformAttribute = transformAttr;
+        p->fillOpacity = fillOp;
+        p->strokeOpacity = strokeOp;
         p->points = ParsePoints(AttrOr(node, "points", ""));
 
-        if (!node.getAttribute("stroke").empty()) p->hasInputStroke = true;
-        const std::string stroke = AttrOr(node, "stroke", "none");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) p->hasInputStroke = true;
+        p->strokeColor = ParsePaint("stroke", "none", p.get(), false);
 
-        if (!node.getAttribute("stroke-width").empty()) p->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) p->hasInputStrokeWidth = true;
         p->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
 
-        if (!node.getAttribute("fill").empty()) p->hasInputFill = true;
-        std::string fill = AttrOr(node, "fill", "none");
-        p->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
+        if (!GetAttr("fill").empty()) p->hasInputFill = true;
+        p->fillColor = ParsePaint("fill", "none", p.get(), true);
 
         string pointsAttr = node.getAttribute("points");
         p->points = ParsePoints(pointsAttr);
@@ -595,18 +698,18 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
     else if (tag == "polygon")
     {
         auto p = std::make_unique<SvgPolygon>();
+        p->transformAttribute = transformAttr;
+        p->fillOpacity = fillOp;
+        p->strokeOpacity = strokeOp;
         p->points = ParsePoints(AttrOr(node, "points", ""));
 
-        if (!node.getAttribute("stroke").empty()) p->hasInputStroke = true;
-        const std::string stroke = AttrOr(node, "stroke", "none");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) p->hasInputStroke = true;
+        p->strokeColor = ParsePaint("stroke", "none", p.get(), false);
 
-        if (!node.getAttribute("fill").empty()) p->hasInputFill = true;
-        const std::string fill = AttrOr(node, "fill", "black");
-        // polygon default fill is black
-        p->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
+        if (!GetAttr("fill").empty()) p->hasInputFill = true;
+        p->fillColor = ParsePaint("fill", "black", p.get(), true);
 
-        if (!node.getAttribute("stroke-width").empty()) p->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) p->hasInputStrokeWidth = true;
         p->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
 
         string pointsAttr = node.getAttribute("points");
@@ -625,25 +728,25 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         if (r != std::string::npos) textContent.erase(r + 1);
 
         auto t = std::make_unique<SvgText>();
+        t->fillOpacity = fillOp;
+        t->strokeOpacity = strokeOp;
         t->text = wstring(textContent.begin(), textContent.end());
 
         // Use safe helpers to read numeric attributes with defaults
         t->x = AttrOrFloat(node, "x", 0.0f);
         t->y = AttrOrFloat(node, "y", 0.0f);
 
-        if (!node.getAttribute("fill").empty()) t->hasInputFill = true;
-        const std::string fill = AttrOr(node, "fill", "black");
-        t->fillColor = ApplyOpacity(ParseColor(fill), fillOp);
+        if (!GetAttr("fill").empty()) t->hasInputFill = true;
+        t->fillColor = ParsePaint("fill", "black", t.get(), true);
 
         // Ensure fontSize has a sensible default early so heuristics can use it
         t->fontSize = AttrOrFloat(node, "font-size", 12.0f);
 
         // Parse stroke for text (outline)
-        if (!node.getAttribute("stroke").empty()) t->hasInputStroke = true;
-        const std::string stroke = AttrOr(node, "stroke", "none");
-        t->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) t->hasInputStroke = true;
+        t->strokeColor = ParsePaint("stroke", "none", t.get(), false);
         
-        if (!node.getAttribute("stroke-width").empty()) t->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) t->hasInputStrokeWidth = true;
         t->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
 
         if (t->strokeColor.GetAlpha() == 0 && t->fillColor.GetAlpha() > 0)
@@ -686,6 +789,9 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
     else if (tag == "path")
     {
         auto p = std::make_unique<SvgPath>();
+        p->transformAttribute = transformAttr;
+        p->fillOpacity = fillOp;
+        p->strokeOpacity = strokeOp;
         std::string d = AttrOr(node, "d", "");
         p->pathData = ParsePathData(d);
         std::string fr = AttrOr(node, "fill-rule", "");
@@ -694,24 +800,13 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
         else
             p->pathData->SetFillMode(Gdiplus::FillModeAlternate);
 
-        if (!node.getAttribute("stroke").empty()) p->hasInputStroke = true;
-        std::string stroke = AttrOr(node, "stroke", "none");
-        p->strokeColor = ApplyOpacity(ParseColor(stroke), strokeOp);
+        if (!GetAttr("stroke").empty()) p->hasInputStroke = true;
+        p->strokeColor = ParsePaint("stroke", "none", p.get(), false);
 
-        if (!node.getAttribute("fill").empty()) p->hasInputFill = true;
-        std::string fill = AttrOr(node, "fill", "black");
-        if (fill.rfind("url(", 0) == 0)
-        {
-            if (fill == "url(#fill0)") fill = "#CDA038";
-            else if (fill == "url(#fill1)") fill = "#B89200";
-            p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
-        }
-        else
-        {
-            p->fillColor = ApplyOpacity(ParseColor(fill.empty() ? "black" : fill), fillOp);
-        }
+        if (!GetAttr("fill").empty()) p->hasInputFill = true;
+        p->fillColor = ParsePaint("fill", "black", p.get(), true);
 
-        if (!node.getAttribute("stroke-width").empty()) p->hasInputStrokeWidth = true;
+        if (!GetAttr("stroke-width").empty()) p->hasInputStrokeWidth = true;
         p->strokeWidth = AttrOrFloat(node, "stroke-width", 1.0f);
 
         element = std::move(p);
@@ -728,9 +823,17 @@ std::unique_ptr<ISvgElement> SvgElementFactory::CreateElement(const IXMLNode &no
             if (tag == "text" && transform.rfind("translate", 0) == 0)
             {
                 float tx = 0.0f, ty = 0.0f;
-
-                if (sscanf(transform.c_str(), "translate(%f,%f)", &tx, &ty) != 2)
-                    sscanf(transform.c_str(), "translate(%f %f)", &tx, &ty);
+                // Standard sscanf depends on locale too? Maybe.
+                // Better manually parse "translate(x, y)" or "translate(x y)"
+                // But sscanf is often C-locale behavior? Depends on implementation.
+                // Let's replace comma with space and parse stream
+                std::string targs = transform.substr(9); // after "translate"
+                if (!targs.empty() && targs.front() == '(') targs = targs.substr(1);
+                 if (!targs.empty() && targs.back() == ')') targs.pop_back();
+                 std::replace(targs.begin(), targs.end(), ',', ' ');
+                 std::stringstream ss(targs);
+                 ss.imbue(std::locale::classic());
+                 ss >> tx >> ty;
 
                 SvgText* t = static_cast<SvgText*>(element.get());
                 t->x += tx;

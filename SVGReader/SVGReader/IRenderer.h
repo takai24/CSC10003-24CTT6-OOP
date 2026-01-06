@@ -10,11 +10,17 @@ class SvgPolygon;
 class SvgText;
 class SvgPath;
 class SvgGroup;
+class SvgGradient;
+#include <unordered_map>
+#include <memory>
+#include <string>
 
 class IRenderer
 {
 public:
     virtual ~IRenderer() {}
+
+    virtual void SetGradients(const std::unordered_map<std::string, std::shared_ptr<SvgGradient>>& gradients) = 0;
 
     virtual void DrawLine(const SvgLine &line) = 0;
     virtual void DrawRect(const SvgRect &rect) = 0;

@@ -22,6 +22,12 @@ public:
     bool hasInputStrokeWidth = false;
     bool hasInputStrokeOpacity = false;
     bool hasInputFillOpacity = false;
+
+
+    float fillOpacity = 1.0f;
+    float strokeOpacity = 1.0f;
+
+    std::string fillUrl;
 };
 
 class ISvgShape : public ISvgElement
