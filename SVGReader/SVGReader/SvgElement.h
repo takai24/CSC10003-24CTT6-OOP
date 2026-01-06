@@ -16,6 +16,12 @@ public:
     virtual ~ISvgElement() {}
     std::string transformAttribute;
     virtual void Draw(IRenderer &renderer) const = 0;
+
+    bool hasInputFill = false;
+    bool hasInputStroke = false;
+    bool hasInputStrokeWidth = false;
+    bool hasInputStrokeOpacity = false;
+    bool hasInputFillOpacity = false;
 };
 
 class ISvgShape : public ISvgElement
@@ -105,19 +111,10 @@ public:
 class SvgGroup : public ISvgElement
 {
 public:
-    bool hasStroke = false;
     Gdiplus::Color strokeColor;
-
-    bool hasFill = false;
     Gdiplus::Color fillColor;
-
-    bool hasStrokeWidth = false;
     float strokeWidth = 1.0f;
-
-    bool hasStrokeOpacity = false;
     float strokeOpacity = 1.0f;
-
-    bool hasFillOpacity = false;
     float fillOpacity = 1.0f;
 
     std::vector<std::unique_ptr<ISvgElement>> children;
