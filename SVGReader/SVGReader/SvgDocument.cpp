@@ -1,15 +1,16 @@
 #include "stdafx.h"
 #include "SvgDocument.h"
 #include "IRenderer.h"
+#include "GdiPlusRenderer.h"
+// gradients types not required here
 
-void SvgDocument::Render(IRenderer &renderer) const
+void SvgDocument::Render(IRenderer& renderer) const
 {
-    renderer.SetGradients(paintServer.GetGradients());
-    for (const auto &e : elements)
-    {
-        if (e)
-            e->Draw(renderer);
+    if (auto gdiRenderer = dynamic_cast<GdiPlusRenderer*>(&renderer)) {
+        gdiRenderer->SetGradients(this->GetGradients());
+    }
+
+    for (const auto& element : elements) {
+        element->Draw(renderer);
     }
 }
-
-

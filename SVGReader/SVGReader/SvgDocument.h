@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _SVGDOCUMENT_H_
+#define _SVGDOCUMENT_H_
 
 #include "stdafx.h"
 #include "SvgElement.h"
@@ -21,7 +22,7 @@ public:
         elements.push_back(std::move(element));
     }
 
-    void Render(IRenderer &renderer) const;
+    void Render(IRenderer& renderer) const;
 
     void SetSize(float w, float h)
     {
@@ -45,10 +46,10 @@ public:
     {
         return paintServer.GetGradient(id);
     }
-    
+
     // For renderer access (accessing the map from Paint Server)
-    const std::unordered_map<std::string, std::shared_ptr<SvgGradient>>& GetGradients() const { 
-        return paintServer.GetGradients(); 
+    const std::unordered_map<std::string, std::shared_ptr<SvgGradient>>& GetGradients() const {
+        return paintServer.GetGradients();
     }
 
 private:
@@ -57,3 +58,5 @@ private:
     float width = 0.0f;
     float height = 0.0f;
 };
+
+#endif

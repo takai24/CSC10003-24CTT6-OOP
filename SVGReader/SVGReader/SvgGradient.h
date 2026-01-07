@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _SVGGRADIENT_H_
+#define _SVGGRADIENT_H_
 #include <string>
 #include <vector>
 #include <gdiplus.h>
@@ -55,3 +56,5 @@ public:
     float x2 = 1.0f; bool hasX2 = false;
     float y2 = 0.0f; bool hasY2 = false;
 };
+
+#endif

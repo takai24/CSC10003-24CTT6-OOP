@@ -3,12 +3,12 @@
 
 using namespace Gdiplus;
 
-void GdiPlusRenderer::DrawEllipse(const SvgEllipse &e)
+void GdiPlusRenderer::DrawEllipse(const SvgEllipse& e)
 {
     GraphicsState state = graphics.Save();
     ApplyTransform(graphics, e.transformAttribute);
     Pen pen(e.strokeColor, e.strokeWidth);
-    
+
     float w = e.rx * 2.0f;
     float h = e.ry * 2.0f;
     RectF bounds(e.cx - e.rx, e.cy - e.ry, w, h);

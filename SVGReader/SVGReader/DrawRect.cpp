@@ -1,19 +1,27 @@
 #include "stdafx.h"
 #include "GdiPlusRenderer.h"
-
 using namespace Gdiplus;
 
-void GdiPlusRenderer::DrawRect(const SvgRect &rect)
+void GdiPlusRenderer::DrawRect(const SvgRect& rect)
 {
     GraphicsState state = graphics.Save();
     ApplyTransform(graphics, rect.transformAttribute);
-    Pen pen(rect.strokeColor, rect.strokeWidth);
-    
+
     RectF bounds(rect.x, rect.y, rect.w, rect.h);
-    auto brush = CreateFillBrush(rect.fillUrl, rect.fillColor, rect.fillOpacity, bounds);
-    
+
+    Brush* brush = CreateFillBrush(rect.fillAttributeString, rect.fillColor, 1.0f, bounds).release();
+
     if (brush)
-        graphics.FillRectangle(brush.get(), rect.x, rect.y, rect.w, rect.h);
-    graphics.DrawRectangle(&pen, rect.x, rect.y, rect.w, rect.h);
+    {
+        graphics.FillRectangle(brush, bounds);
+        delete brush; 
+    }
+
+    if (rect.strokeWidth > 0 && rect.strokeColor.GetAlpha() > 0)
+    {
+        Pen pen(rect.strokeColor, rect.strokeWidth);
+        graphics.DrawRectangle(&pen, bounds);
+    }
+
     graphics.Restore(state);
 }

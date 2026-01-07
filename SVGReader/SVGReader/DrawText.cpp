@@ -58,21 +58,15 @@ void GdiPlusRenderer::DrawText(const SvgText& text)
 
     std::wstring family = ResolveSvgFontFamily(text.fontFamily);
 
-    std::unique_ptr<FontFamily> fontFamily =
-        std::make_unique<FontFamily>(family.c_str());
+    auto fontFamily = std::make_unique<FontFamily>(family.c_str());
 
-    if (!fontFamily->IsAvailable())
-    {
+    if (fontFamily->GetLastStatus() != Ok) {
         fontFamily = std::make_unique<FontFamily>(L"Arial");
     }
 
-    Gdiplus::Font font(fontFamily.get(), text.fontSize,
-        FontStyleRegular, UnitPixel);
+    Gdiplus::Font font(fontFamily.get(), text.fontSize, FontStyleRegular, UnitPixel);
 
-    SolidBrush brush(text.fillColor);
-
-    // Create a string format to respect text anchor
-    Gdiplus::StringFormat format;       
+    Gdiplus::StringFormat format;
     if (text.textAnchor == "middle")
         format.SetAlignment(StringAlignmentCenter);
     else if (text.textAnchor == "end" || text.textAnchor == "right")
@@ -80,31 +74,38 @@ void GdiPlusRenderer::DrawText(const SvgText& text)
     else
         format.SetAlignment(StringAlignmentNear);
 
-    // Compute baseline adjustment: SVG y is baseline, GDI+ AddString origin is top
     REAL ascent = 0.0f;
     REAL emHeight = 1.0f;
-    if (fontFamily && fontFamily->IsAvailable())
+
+    if (fontFamily->GetLastStatus() == Ok)
     {
         ascent = static_cast<REAL>(fontFamily->GetCellAscent(FontStyleRegular));
         emHeight = static_cast<REAL>(fontFamily->GetEmHeight(FontStyleRegular));
     }
     REAL ascentPx = (emHeight != 0.0f) ? (text.fontSize * ascent / emHeight) : 0.0f;
 
-   
-    Gdiplus::GraphicsPath path;
-    path.AddString(text.text.c_str(), -1, fontFamily.get(), FontStyleRegular,
-        text.fontSize, PointF(text.x, text.y - ascentPx), &format);
+    PointF origin(text.x, text.y - ascentPx);
 
-   
-    if (text.fillColor.GetAlpha() > 0)
-        graphics.FillPath(&brush, &path);
+    RectF bounds;
+    graphics.MeasureString(text.text.c_str(), -1, &font, origin, &format, &bounds);
+
+    auto bptr = CreateFillBrush(text.fillAttributeString, text.fillColor, 1.0f, bounds);
+    Brush* brush = bptr ? bptr.get() : nullptr;
+    if (brush)
+    {
+        graphics.DrawString(text.text.c_str(), -1, &font, origin, &format, brush);
+    }
 
     if (text.strokeColor.GetAlpha() > 0 && text.strokeWidth > 0.0f)
     {
+        Gdiplus::GraphicsPath path;
+        path.AddString(text.text.c_str(), -1, fontFamily.get(), FontStyleRegular,
+            text.fontSize, origin, &format);
+
         Gdiplus::Pen pen(text.strokeColor, text.strokeWidth);
         pen.SetLineJoin(LineJoinRound);
         graphics.DrawPath(&pen, &path);
-    }               
-            
+    }
+
     graphics.Restore(state);
 }

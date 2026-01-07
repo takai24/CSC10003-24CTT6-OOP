@@ -3,7 +3,7 @@
 
 using namespace Gdiplus;
 
-void GdiPlusRenderer::DrawPath(const SvgPath &path)
+void GdiPlusRenderer::DrawPath(const SvgPath& path)
 {
     if (!path.pathData)
         return;
@@ -11,7 +11,7 @@ void GdiPlusRenderer::DrawPath(const SvgPath &path)
     GraphicsState state = graphics.Save();
     ApplyTransform(graphics, path.transformAttribute);
     Pen pen(path.strokeColor, path.strokeWidth);
-    
+
     RectF bounds;
     path.pathData->GetBounds(&bounds);
     auto brush = CreateFillBrush(path.fillUrl, path.fillColor, path.fillOpacity, bounds);

@@ -1,196 +1,475 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "GdiPlusRenderer.h"
 
 using namespace Gdiplus;
 
-void GdiPlusRenderer::DrawGroup(const SvgGroup &group)
+void GdiPlusRenderer::DrawGroup(const SvgGroup& group)
 {
     GraphicsState state = graphics.Save();
     ApplyTransform(graphics, group.transformAttribute);
-    auto computeStrokeColor = [&](const Color &childStroke, bool childHasStroke) -> Color
-    {
-        Color base = (childHasStroke) ? childStroke : (group.hasInputStroke ? group.strokeColor : childStroke);
-        float baseA = base.GetAlpha() / 255.0f;
-        float childA = childStroke.GetAlpha() / 255.0f;
-        if (group.hasInputStroke && childStroke.GetAlpha() == 0 && !childHasStroke)
-            childA = 1.0f;
-        float groupA = group.hasInputStrokeOpacity ? group.strokeOpacity : 1.0f;
-        float finalA = baseA * childA * groupA;
-        int aInt = static_cast<int>(finalA * 255.0f + 0.5f);
-        if (aInt < 0)
-            aInt = 0;
-        if (aInt > 255)
-            aInt = 255;
-        BYTE a = static_cast<BYTE>(aInt);
-        return Color(a, base.GetR(), base.GetG(), base.GetB());
-    };
 
-    auto computeFillColor = [&](const Color &childFill, bool childHasFill) -> Color
+    for (const auto& child : group.children)
     {
-        Color base = (childHasFill) ? childFill : (group.hasInputFill ? group.fillColor : childFill);
-        float baseA = base.GetAlpha() / 255.0f;
-        float childA = childFill.GetAlpha() / 255.0f;
-        float groupA = group.hasInputFillOpacity ? group.fillOpacity : 1.0f;
-        float finalA = baseA * childA * groupA;
-        int aInt = static_cast<int>(finalA * 255.0f + 0.5f);
-        if (aInt < 0)
-            aInt = 0;
-        if (aInt > 255)
-            aInt = 255;
-        BYTE a = static_cast<BYTE>(aInt);
-        return Color(a, base.GetR(), base.GetG(), base.GetB());
-    };
-
-    for (const auto &child : group.children)
-    {
-        if (auto g = dynamic_cast<SvgGroup *>(child.get()))
+        if (auto g = dynamic_cast<SvgGroup*>(child.get()))
         {
-            bool old_hasStroke = g->hasInputStroke;
+            bool old_hasStroke = g->hasStroke;
             Color old_strokeColor = g->strokeColor;
-            bool old_hasFill = g->hasInputFill;
+            bool old_hasFill = g->hasFill;
             Color old_fillColor = g->fillColor;
-            bool old_hasStrokeWidth = g->hasInputStrokeWidth;
+            std::string old_fillAttributeString = g->fillAttributeString;
+            bool old_hasStrokeWidth = g->hasStrokeWidth;
             float old_strokeWidth = g->strokeWidth;
-            bool old_hasStrokeOpacity = g->hasInputStrokeOpacity;
+            bool old_hasStrokeOpacity = g->hasStrokeOpacity;
             float old_strokeOpacity = g->strokeOpacity;
-            bool old_hasFillOpacity = g->hasInputFillOpacity;
+            bool old_hasFillOpacity = g->hasFillOpacity;
             float old_fillOpacity = g->fillOpacity;
 
-            if (group.hasInputStroke && !g->hasInputStroke)
+            if (group.hasStroke && !g->hasStroke)
             {
-                g->hasInputStroke = true;
+                g->hasStroke = true;
                 g->strokeColor = group.strokeColor;
             }
 
-            if (group.hasInputFill && !g->hasInputFill)
+            if (group.hasFill && !g->hasFill)
             {
-                g->hasInputFill = true;
+                g->hasFill = true;
                 g->fillColor = group.fillColor;
             }
 
-            if (group.hasInputStrokeWidth && !g->hasInputStrokeWidth)
+            if (group.hasStrokeWidth && !g->hasStrokeWidth)
             {
-                g->hasInputStrokeWidth = true;
+                g->hasStrokeWidth = true;
                 g->strokeWidth = group.strokeWidth;
             }
 
-            if (group.hasInputStrokeOpacity && !g->hasInputStrokeOpacity)
+            if (group.hasStrokeOpacity && !g->hasStrokeOpacity)
             {
-                g->hasInputStrokeOpacity = true;
+                g->hasStrokeOpacity = true;
                 g->strokeOpacity = group.strokeOpacity;
             }
 
-            if (group.hasInputFillOpacity && !g->hasInputFillOpacity)
+            if (group.hasFillOpacity && !g->hasFillOpacity)
             {
-                g->hasInputFillOpacity = true;
+                g->hasFillOpacity = true;
                 g->fillOpacity = group.fillOpacity;
+            }
+
+            if (!group.fillAttributeString.empty() && g->fillAttributeString.empty()) {
+                g->fillAttributeString = group.fillAttributeString;
             }
 
             g->Draw(*this);
 
             // restore
-            g->hasInputStroke = old_hasStroke;
+            g->hasStroke = old_hasStroke;
             g->strokeColor = old_strokeColor;
-            g->hasInputFill = old_hasFill;
+            g->hasFill = old_hasFill;
             g->fillColor = old_fillColor;
-            g->hasInputStrokeWidth = old_hasStrokeWidth;
+            g->fillAttributeString = old_fillAttributeString;
+            g->hasStrokeWidth = old_hasStrokeWidth;
             g->strokeWidth = old_strokeWidth;
-            g->hasInputStrokeOpacity = old_hasStrokeOpacity;
+            g->hasStrokeOpacity = old_hasStrokeOpacity;
             g->strokeOpacity = old_strokeOpacity;
-            g->hasInputFillOpacity = old_hasFillOpacity;
+            g->hasFillOpacity = old_hasFillOpacity;
             g->fillOpacity = old_fillOpacity;
 
             continue;
         }
 
 
-        if (auto line = dynamic_cast<SvgLine *>(child.get()))
+        if (auto line = dynamic_cast<SvgLine*>(child.get()))
         {
             SvgLine tmp = *line;
-            tmp.strokeColor = computeStrokeColor(line->strokeColor, line->hasInputStroke);
-            if (group.hasInputStrokeWidth && !line->hasInputStrokeWidth)
+            // Apply group's stroke color only if child has no stroke
+            if (!line->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !line->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !line->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            // Apply group's stroke-opacity multiplicatively to the child's stroke alpha
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            if (group.hasStrokeWidth)
                 tmp.strokeWidth = line->strokeWidth * group.strokeWidth;
-            else if (group.hasInputStrokeWidth && line->hasInputStrokeWidth)
-                 tmp.strokeWidth = line->strokeWidth; // If child has stroke width, do we multiply? Usually replacing, or multiplying if relative? SVG spec says inherit.
-                 // Actually stroke-width is not inherited by multiplication usually, it's just inherited if not specified.
-                 // But here the code was doing multiplication? 
-                 // The old code: if (group.hasStrokeWidth) tmp.strokeWidth = line->strokeWidth * group.strokeWidth;
-                 // Wait, line->strokeWidth is initialized to 1.0f. If not specified, it is 1.0.
-                 // If group specifies 4, and line doesn't specify, line should be 4?
-                 // If line specifies 2, line should be 2.
-                 // The multiplication logic seems suspicious or specific to this engine's interpretation.
-                 // For now, I will stick to "if child has input, use child. if not, use group".
-                 // BUT, I'll keep the multiplication if it was intended for scaling?
-                 // No, transform handles scaling. This is likely just wrong inheritance logic in the old code or I'm misunderstanding.
-                 // Given the task is about color, I should be careful with stroke width changes.
-                 // However, "fix the code to render correct".
-                 // Let's assume standard inheritance: if child not set, use parent.
-            if (group.hasInputStrokeWidth && !line->hasInputStrokeWidth)
-                 tmp.strokeWidth = group.strokeWidth;
-            
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
+            if (!group.fillUrl.empty() && tmp.fillUrl.empty()) {
+                tmp.fillUrl = group.fillUrl;
+            }
+
             DrawLine(tmp);
         }
-        else if (auto rect = dynamic_cast<SvgRect *>(child.get()))
+        else if (auto rect = dynamic_cast<SvgRect*>(child.get()))
         {
             SvgRect tmp = *rect;
-            tmp.strokeColor = computeStrokeColor(rect->strokeColor, rect->hasInputStroke);
-            tmp.fillColor = computeFillColor(rect->fillColor, rect->hasInputFill);
-            if (group.hasInputStrokeWidth && !rect->hasInputStrokeWidth)
-                tmp.strokeWidth = group.strokeWidth;
+            if (!rect->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !rect->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !rect->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            if (!rect->hasFill && group.hasFill)
+            {
+                tmp.hasFill = true;
+                tmp.fillColor = group.fillColor;
+                if (group.hasFillOpacity && !rect->hasFillOpacity) {
+                    tmp.hasFillOpacity = true;
+                    tmp.fillOpacity = group.fillOpacity;
+                }
+            }
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = rect->strokeWidth * group.strokeWidth;
+            // Apply group's stroke-opacity multiplicatively to the child's stroke alpha
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            // inherit/apply group's fill opacity multiplicatively
+            if (group.hasFillOpacity && tmp.fillColor.GetAlpha() > 0)
+            {
+                float a = tmp.fillColor.GetAlpha() / 255.0f;
+                a *= group.fillOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.fillColor = Color(static_cast<BYTE>(ai), tmp.fillColor.GetR(), tmp.fillColor.GetG(), tmp.fillColor.GetB());
+            }
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
             DrawRect(tmp);
         }
-        else if (auto circle = dynamic_cast<SvgCircle *>(child.get()))
+        else if (auto circle = dynamic_cast<SvgCircle*>(child.get()))
         {
             SvgCircle tmp = *circle;
-            tmp.strokeColor = computeStrokeColor(circle->strokeColor, circle->hasInputStroke);
-            tmp.fillColor = computeFillColor(circle->fillColor, circle->hasInputFill);
-            if (group.hasInputStrokeWidth && !circle->hasInputStrokeWidth)
-                tmp.strokeWidth = group.strokeWidth;
+            if (!circle->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !circle->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !circle->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            if (!circle->hasFill && group.hasFill)
+            {
+                tmp.hasFill = true;
+                tmp.fillColor = group.fillColor;
+                if (group.hasFillOpacity && !circle->hasFillOpacity) {
+                    tmp.hasFillOpacity = true;
+                    tmp.fillOpacity = group.fillOpacity;
+                }
+            }
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = circle->strokeWidth * group.strokeWidth;
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            if (group.hasFillOpacity && tmp.fillColor.GetAlpha() > 0)
+            {
+                float a = tmp.fillColor.GetAlpha() / 255.0f;
+                a *= group.fillOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.fillColor = Color(static_cast<BYTE>(ai), tmp.fillColor.GetR(), tmp.fillColor.GetG(), tmp.fillColor.GetB());
+            }
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
+            if (!group.fillUrl.empty() && tmp.fillUrl.empty()) {
+                tmp.fillUrl = group.fillUrl;
+            }
+
             DrawCircle(tmp);
         }
-        else if (auto e = dynamic_cast<SvgEllipse *>(child.get()))
+        else if (auto e = dynamic_cast<SvgEllipse*>(child.get()))
         {
             SvgEllipse tmp = *e;
-            tmp.strokeColor = computeStrokeColor(e->strokeColor, e->hasInputStroke);
-            tmp.fillColor = computeFillColor(e->fillColor, e->hasInputFill);
-            if (group.hasInputStrokeWidth && !e->hasInputStrokeWidth)
-                tmp.strokeWidth = group.strokeWidth;
+            if (!e->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !e->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !e->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            if (!e->hasFill && group.hasFill)
+            {
+                tmp.hasFill = true;
+                tmp.fillColor = group.fillColor;
+                if (group.hasFillOpacity && !e->hasFillOpacity) {
+                    tmp.hasFillOpacity = true;
+                    tmp.fillOpacity = group.fillOpacity;
+                }
+            }
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = e->strokeWidth * group.strokeWidth;
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            if (group.hasFillOpacity && tmp.fillColor.GetAlpha() > 0)
+            {
+                float a = tmp.fillColor.GetAlpha() / 255.0f;
+                a *= group.fillOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.fillColor = Color(static_cast<BYTE>(ai), tmp.fillColor.GetR(), tmp.fillColor.GetG(), tmp.fillColor.GetB());
+            }
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
+            if (!group.fillUrl.empty() && tmp.fillUrl.empty()) {
+                tmp.fillUrl = group.fillUrl;
+            }
+
             DrawEllipse(tmp);
         }
-        else if (auto pl = dynamic_cast<SvgPolyline *>(child.get()))
+        else if (auto pl = dynamic_cast<SvgPolyline*>(child.get()))
         {
             SvgPolyline tmp = *pl;
-            tmp.strokeColor = computeStrokeColor(pl->strokeColor, pl->hasInputStroke);
-            tmp.fillColor = computeFillColor(pl->fillColor, pl->hasInputFill);
-            if (group.hasInputStrokeWidth && !pl->hasInputStrokeWidth)
-                tmp.strokeWidth = group.strokeWidth;
+            if (!pl->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !pl->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !pl->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            if (!pl->hasFill && group.hasFill)
+            {
+                tmp.hasFill = true;
+                tmp.fillColor = group.fillColor;
+                if (group.hasFillOpacity && !pl->hasFillOpacity) {
+                    tmp.hasFillOpacity = true;
+                    tmp.fillOpacity = group.fillOpacity;
+                }
+            }
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = pl->strokeWidth * group.strokeWidth;
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            if (group.hasFillOpacity && tmp.fillColor.GetAlpha() > 0)
+            {
+                float a = tmp.fillColor.GetAlpha() / 255.0f;
+                a *= group.fillOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.fillColor = Color(static_cast<BYTE>(ai), tmp.fillColor.GetR(), tmp.fillColor.GetG(), tmp.fillColor.GetB());
+            }
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
+            if (!group.fillUrl.empty() && tmp.fillUrl.empty()) {
+                tmp.fillUrl = group.fillUrl;
+            }
+
             DrawPolyline(tmp);
         }
-        else if (auto pg = dynamic_cast<SvgPolygon *>(child.get()))
+        else if (auto pg = dynamic_cast<SvgPolygon*>(child.get()))
         {
             SvgPolygon tmp = *pg;
-            tmp.strokeColor = computeStrokeColor(pg->strokeColor, pg->hasInputStroke);
-            tmp.fillColor = computeFillColor(pg->fillColor, pg->hasInputFill);
-            if (group.hasInputStrokeWidth && !pg->hasInputStrokeWidth)
-                tmp.strokeWidth = group.strokeWidth;
+            if (!pg->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !pg->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !pg->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            if (!pg->hasFill && group.hasFill)
+            {
+                tmp.hasFill = true;
+                tmp.fillColor = group.fillColor;
+                if (group.hasFillOpacity && !pg->hasFillOpacity) {
+                    tmp.hasFillOpacity = true;
+                    tmp.fillOpacity = group.fillOpacity;
+                }
+            }
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = pg->strokeWidth * group.strokeWidth;
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            if (group.hasFillOpacity && tmp.fillColor.GetAlpha() > 0)
+            {
+                float a = tmp.fillColor.GetAlpha() / 255.0f;
+                a *= group.fillOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.fillColor = Color(static_cast<BYTE>(ai), tmp.fillColor.GetR(), tmp.fillColor.GetG(), tmp.fillColor.GetB());
+            }
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
             DrawPolygon(tmp);
         }
-        else if (auto path = dynamic_cast<SvgPath *>(child.get()))
+        else if (auto path = dynamic_cast<SvgPath*>(child.get()))
         {
             SvgPath tmp = *path;
-            tmp.strokeColor = computeStrokeColor(path->strokeColor, path->hasInputStroke);
-            tmp.fillColor = computeFillColor(path->fillColor, path->hasInputFill);
-            if (group.hasInputStrokeWidth && !path->hasInputStrokeWidth)
-                tmp.strokeWidth = group.strokeWidth;
+            if (!path->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !path->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !path->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            if (!path->hasFill && group.hasFill)
+            {
+                tmp.hasFill = true;
+                tmp.fillColor = group.fillColor;
+                if (group.hasFillOpacity && !path->hasFillOpacity) {
+                    tmp.hasFillOpacity = true;
+                    tmp.fillOpacity = group.fillOpacity;
+                }
+            }
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = path->strokeWidth * group.strokeWidth;
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            if (group.hasFillOpacity && tmp.fillColor.GetAlpha() > 0)
+            {
+                float a = tmp.fillColor.GetAlpha() / 255.0f;
+                a *= group.fillOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.fillColor = Color(static_cast<BYTE>(ai), tmp.fillColor.GetR(), tmp.fillColor.GetG(), tmp.fillColor.GetB());
+            }
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
+            if (!group.fillUrl.empty() && tmp.fillUrl.empty()) {
+                tmp.fillUrl = group.fillUrl;
+            }
+
             DrawPath(tmp);
         }
-        else if (auto text = dynamic_cast<SvgText *>(child.get()))
+        else if (auto text = dynamic_cast<SvgText*>(child.get()))
         {
             SvgText tmp = *text;
-            tmp.fillColor = computeFillColor(text->fillColor, text->hasInputFill);
-            tmp.strokeColor = computeStrokeColor(text->strokeColor, text->hasInputStroke);
-            if (group.hasInputStrokeWidth && !text->hasInputStrokeWidth)
-                tmp.strokeWidth = group.strokeWidth;
+            if (!text->hasFill && group.hasFill)
+            {
+                tmp.hasFill = true;
+                tmp.fillColor = group.fillColor;
+                if (group.hasFillOpacity && !text->hasFillOpacity) {
+                    tmp.hasFillOpacity = true;
+                    tmp.fillOpacity = group.fillOpacity;
+                }
+            }
+            if (!text->hasStroke && group.hasStroke)
+            {
+                tmp.hasStroke = true;
+                tmp.strokeColor = group.strokeColor;
+                if (group.hasStrokeOpacity && !text->hasStrokeOpacity) {
+                    tmp.hasStrokeOpacity = true;
+                    tmp.strokeOpacity = group.strokeOpacity;
+                }
+                if (group.hasStrokeWidth && !text->hasStrokeWidth) {
+                    tmp.hasStrokeWidth = true;
+                    tmp.strokeWidth = group.strokeWidth;
+                }
+            }
+            if (group.hasStrokeWidth)
+                tmp.strokeWidth = text->strokeWidth * group.strokeWidth;
+            if (group.hasStrokeOpacity)
+            {
+                float a = tmp.strokeColor.GetAlpha() / 255.0f;
+                a *= group.strokeOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.strokeColor = Color(static_cast<BYTE>(ai), tmp.strokeColor.GetR(), tmp.strokeColor.GetG(), tmp.strokeColor.GetB());
+            }
+            if (group.hasFillOpacity && tmp.fillColor.GetAlpha() > 0)
+            {
+                float a = tmp.fillColor.GetAlpha() / 255.0f;
+                a *= group.fillOpacity;
+                int ai = static_cast<int>(a * 255.0f + 0.5f);
+                ai = (ai < 0) ? 0 : (ai > 255 ? 255 : ai);
+                tmp.fillColor = Color(static_cast<BYTE>(ai), tmp.fillColor.GetR(), tmp.fillColor.GetG(), tmp.fillColor.GetB());
+            }
+            if (!group.fillAttributeString.empty() && tmp.fillAttributeString.empty()) {
+                tmp.fillAttributeString = group.fillAttributeString;
+            }
+            if (!group.fillUrl.empty() && tmp.fillUrl.empty()) {
+                tmp.fillUrl = group.fillUrl;
+            }
+
             DrawText(tmp);
         }
         else
@@ -201,4 +480,3 @@ void GdiPlusRenderer::DrawGroup(const SvgGroup &group)
 
     graphics.Restore(state);
 }
-

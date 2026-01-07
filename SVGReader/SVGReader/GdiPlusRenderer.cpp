@@ -15,7 +15,7 @@ std::unique_ptr<Gdiplus::Brush> GdiPlusRenderer::CreateFillBrush(const std::stri
         auto it = gradients.find(fillUrl);
         if (it != gradients.end())
         {
-             return GdiPlusGradientRenderer::CreateBrush(it->second, bounds, fillOpacity);
+            return GdiPlusGradientRenderer::CreateBrush(it->second, bounds, fillOpacity);
         }
     }
     // Fallback
