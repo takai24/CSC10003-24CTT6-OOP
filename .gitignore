@@ -1,7 +1,0 @@
-*.pdb
-*.exe
-*.bin
-.vs
-.vscode
-Debug
-.cph
